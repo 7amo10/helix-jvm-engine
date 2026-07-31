@@ -1,0 +1,66 @@
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# Java
+*.class
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+hs_err_pid*
+replay_pid*
+
+# Logs
+*.log
+logs/
+*.out
+
+# JVM profiling
+*.jfr
+*.hprof
+flamegraph*.html
+hotspot*.log
+gc*.log
+safepoint*.log
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+*.class.bak
+test-output/
+
+# JMH
+jmh-result.json
+
+# Temporary files
+*.tmp
+*.bak
+*.cache
+
+# Distribution
+dist/
+build/
+
+# OS
+Thumbs.db
+.directory
