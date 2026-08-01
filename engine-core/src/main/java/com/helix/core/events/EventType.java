@@ -1,0 +1,12 @@
+package com.helix.core.events;
+
+public enum EventType {
+    COMPILATION_STARTED,
+    COMPILATION_COMPLETED,
+    EXECUTION_STARTED,
+    EXECUTION_COMPLETED,
+    CACHE_HIT,
+    CACHE_MISS,
+    CLASS_LOADED,
+    CLASS_UNLOADED
+}
