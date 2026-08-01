@@ -33,8 +33,15 @@ public class JsonRuleLoader {
             if (is == null) {
                 throw new IOException("Resource not found: " + resourcePath);
             }
-            String content = new String(is.readAllBytes(), StandardCharsets.UTF_8);
-            return parser.parse(content);
+            return loadFromStream(is);
         }
+    }
+
+    public Rule loadFromStream(InputStream is) throws IOException, ParseException {
+        if (is == null) {
+            throw new IOException("InputStream cannot be null");
+        }
+        String content = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+        return parser.parse(content);
     }
 }
