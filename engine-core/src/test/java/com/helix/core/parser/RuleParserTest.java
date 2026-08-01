@@ -5,6 +5,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayInputStream;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class RuleParserTest {
@@ -17,100 +19,157 @@ class RuleParserTest {
     }
 
     @Test
-    @DisplayName("Should parse valid simple JSON rule")
-    void testParseValidSimpleRule() throws ParseException {
+    @DisplayName("Should parse valid JSON rule with required fields")
+    void testParseValidRule() throws ParseException {
         String json = """
                 {
-                    "name": "SimpleDiscountRule",
-                    "expression": "amount > 100",
-                    "version": "1.2.0",
-                    "description": "Applies discount for large purchases",
-                    "category": "DISCOUNT"
+                    "name": "DiscountRule",
+                    "expression": "amount > 100"
                 }
                 """;
 
         Rule rule = parser.parse(json);
         assertNotNull(rule);
-        assertEquals("SimpleDiscountRule", rule.getName());
+        assertEquals("DiscountRule", rule.getName());
         assertEquals("amount > 100", rule.getExpression());
-        assertEquals("1.2.0", rule.getVersion());
-        assertEquals("Applies discount for large purchases", rule.getDescription());
-        assertTrue(rule instanceof RuleSchema);
-        assertEquals("DISCOUNT", ((RuleSchema) rule).getCategory());
+        assertEquals("1.0.0", rule.getVersion());
     }
 
     @Test
-    @DisplayName("Should parse rule with input schema supporting all primitive & object types")
-    void testParseInputSchemaTypes() throws ParseException {
+    @DisplayName("Should parse all supported input types")
+    void testParseSupportedInputTypes() throws ParseException {
         String json = """
                 {
-                    "name": "TypedRule",
-                    "expression": "x > 10 && y < 20.5",
+                    "name": "TypeRule",
+                    "expression": "x > 0",
                     "inputSchema": {
-                        "x": "int",
-                        "y": "double",
-                        "id": "long",
-                        "flag": "boolean",
-                        "name": "string",
-                        "custom": "java.lang.Object"
+                        "a": "int",
+                        "b": "integer",
+                        "c": "double",
+                        "d": "long",
+                        "e": "boolean",
+                        "f": "string",
+                        "g": "object"
                     }
                 }
                 """;
 
         Rule rule = parser.parse(json);
-        assertNotNull(rule);
-        assertEquals(Integer.class, rule.getInputSchema().get("x"));
-        assertEquals(Double.class, rule.getInputSchema().get("y"));
-        assertEquals(Long.class, rule.getInputSchema().get("id"));
-        assertEquals(Boolean.class, rule.getInputSchema().get("flag"));
-        assertEquals(String.class, rule.getInputSchema().get("name"));
-        assertEquals(Object.class, rule.getInputSchema().get("custom"));
+        assertEquals(Integer.class, rule.getInputSchema().get("a"));
+        assertEquals(Integer.class, rule.getInputSchema().get("b"));
+        assertEquals(Double.class, rule.getInputSchema().get("c"));
+        assertEquals(Long.class, rule.getInputSchema().get("d"));
+        assertEquals(Boolean.class, rule.getInputSchema().get("e"));
+        assertEquals(String.class, rule.getInputSchema().get("f"));
+        assertEquals(Object.class, rule.getInputSchema().get("g"));
     }
 
     @Test
-    @DisplayName("Should throw ParseException when JSON is null or blank")
-    void testParseBlankContent() {
-        assertThrows(ParseException.class, () -> parser.parse(""));
-        assertThrows(ParseException.class, () -> parser.parse(null));
-    }
-
-    @Test
-    @DisplayName("Should throw ParseException when mandatory fields are missing")
-    void testMissingRequiredFields() {
-        String jsonMissingExpression = """
+    @DisplayName("Should parse custom FQCN input types")
+    void testParseCustomClassType() throws ParseException {
+        String json = """
                 {
-                    "name": "IncompleteRule"
+                    "name": "CustomTypeRule",
+                    "expression": "str.length() > 0",
+                    "inputSchema": {
+                        "str": "java.lang.String"
+                    }
                 }
                 """;
-        assertThrows(ParseException.class, () -> parser.parse(jsonMissingExpression));
 
-        String jsonMissingName = """
-                {
-                    "expression": "x + 1"
-                }
-                """;
-        assertThrows(ParseException.class, () -> parser.parse(jsonMissingName));
+        Rule rule = parser.parse(json);
+        assertEquals(String.class, rule.getInputSchema().get("str"));
     }
 
     @Test
-    @DisplayName("Should throw ParseException when JSON is malformed")
+    @DisplayName("Should throw ParseException when missing required name field")
+    void testMissingNameField() {
+        String json = """
+                {
+                    "expression": "x > 0"
+                }
+                """;
+        ParseException ex = assertThrows(ParseException.class, () -> parser.parse(json));
+        assertTrue(ex.getMessage().contains("name"));
+    }
+
+    @Test
+    @DisplayName("Should throw ParseException when missing required expression field")
+    void testMissingExpressionField() {
+        String json = """
+                {
+                    "name": "NoExprRule"
+                }
+                """;
+        ParseException ex = assertThrows(ParseException.class, () -> parser.parse(json));
+        assertTrue(ex.getMessage().contains("expression"));
+    }
+
+    @Test
+    @DisplayName("Should throw ParseException on malformed JSON syntax")
     void testMalformedJson() {
-        String malformedJson = "{ name: 'broken' expression: ";
-        assertThrows(ParseException.class, () -> parser.parse(malformedJson));
+        String json = "{ name: 'invalid json without quotes' ";
+        assertThrows(ParseException.class, () -> parser.parse(json));
     }
 
     @Test
-    @DisplayName("Should throw ParseException for unknown type in schema")
-    void testUnknownSchemaType() {
-        String invalidTypeJson = """
+    @DisplayName("Should throw ParseException for unknown input schema type class")
+    void testUnknownInputTypeClass() {
+        String json = """
                 {
                     "name": "InvalidTypeRule",
                     "expression": "x > 0",
                     "inputSchema": {
-                        "x": "com.invalid.NonExistentType"
+                        "x": "com.nonexistent.Class"
                     }
                 }
                 """;
-        assertThrows(ParseException.class, () -> parser.parse(invalidTypeJson));
+        assertThrows(ParseException.class, () -> parser.parse(json));
+    }
+
+    @Test
+    @DisplayName("Should parse full metadata fields (version, description, category)")
+    void testFullMetadata() throws ParseException {
+        String json = """
+                {
+                    "name": "MetadataRule",
+                    "version": "2.1.0",
+                    "description": "Rule with metadata",
+                    "category": "FINANCE",
+                    "expression": "a + b"
+                }
+                """;
+        RuleSchema rule = (RuleSchema) parser.parse(json);
+        assertEquals("2.1.0", rule.getVersion());
+        assertEquals("Rule with metadata", rule.getDescription());
+        assertEquals("FINANCE", rule.getCategory());
+    }
+
+    @Test
+    @DisplayName("Should throw ParseException for empty JSON string")
+    void testEmptyJsonString() {
+        assertThrows(ParseException.class, () -> parser.parse(""));
+    }
+
+    @Test
+    @DisplayName("Should throw ParseException for null JSON string")
+    void testNullJsonString() {
+        assertThrows(ParseException.class, () -> parser.parse((String) null));
+    }
+
+    @Test
+    @DisplayName("Should load JSON rule via JsonRuleLoader stream helper")
+    void testJsonRuleLoaderStream() throws Exception {
+        String json = """
+                {
+                    "name": "StreamRule",
+                    "expression": "true"
+                }
+                """;
+        ByteArrayInputStream is = new ByteArrayInputStream(json.getBytes());
+        JsonRuleLoader loader = new JsonRuleLoader(parser);
+        Rule rule = loader.loadFromStream(is);
+        assertNotNull(rule);
+        assertEquals("StreamRule", rule.getName());
     }
 }
