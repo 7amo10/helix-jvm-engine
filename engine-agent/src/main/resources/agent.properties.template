@@ -1,0 +1,17 @@
+# Helix Java Agent Configuration Properties
+# Format: key=value
+
+# Enables or disables class retransformation on attachment (default: true)
+retransform=true
+
+# Target package prefixes to instrument (comma-separated, default: com.helix)
+packages=com.helix
+
+# Agent logging level: TRACE, DEBUG, INFO, WARN, ERROR (default: INFO)
+logLevel=INFO
+
+# Enables or disables automatic JMX MBean registration (default: true)
+jmxEnabled=true
+
+# Enables or disables allocation tracking (default: true)
+allocationTracking=true
