@@ -1,0 +1,6 @@
+Manifest-Version: 1.0
+Premain-Class: com.helix.agent.AgentMain
+Agent-Class: com.helix.agent.AgentMain
+Can-Redefine-Classes: true
+Can-Retransform-Classes: true
+
