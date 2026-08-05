@@ -8,7 +8,7 @@ import picocli.CommandLine;
 import picocli.CommandLine.Command;
 
 /**
- * Main application entrypoint for the Helix JVM Scripting Engine & Profiler CLI/TUI.
+ * Main application entrypoint for the Helix JVM Scripting Engine &amp; Profiler CLI/TUI.
  */
 @Command(
         name = "helix",

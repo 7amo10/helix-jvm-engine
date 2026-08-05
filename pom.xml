@@ -46,6 +46,7 @@
         <maven.failsafe.plugin.version>3.1.2</maven.failsafe.plugin.version>
         <maven.shade.plugin.version>3.5.0</maven.shade.plugin.version>
         <maven.jar.plugin.version>3.3.0</maven.jar.plugin.version>
+        <maven.javadoc.plugin.version>3.5.0</maven.javadoc.plugin.version>
         <spotbugs.plugin.version>4.7.3.5</spotbugs.plugin.version>
     </properties>
 
@@ -212,6 +213,19 @@
                         <failOnError>true</failOnError>
                     </configuration>
                 </plugin>
+
+                <!-- Javadoc Plugin for API Documentation -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-javadoc-plugin</artifactId>
+                    <version>${maven.javadoc.plugin.version}</version>
+                    <configuration>
+                        <source>${java.version}</source>
+                        <encoding>${project.build.sourceEncoding}</encoding>
+                        <doclint>none</doclint>
+                        <quiet>true</quiet>
+                    </configuration>
+                </plugin>
             </plugins>
         </pluginManagement>
 
@@ -231,6 +245,10 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
             </plugin>
         </plugins>
     </build>

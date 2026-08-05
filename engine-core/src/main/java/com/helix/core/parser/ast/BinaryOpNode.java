@@ -3,7 +3,7 @@ package com.helix.core.parser.ast;
 import java.util.Objects;
 
 /**
- * AST node representing binary operations (+, -, *, /, >, >=, <, <=, ==, !=, &&, ||).
+ * AST node representing binary operations (+, -, *, /, &gt;, &gt;=, &lt;, &lt;=, ==, !=, &amp;&amp;, ||).
  */
 public class BinaryOpNode implements ExpressionNode {
 
