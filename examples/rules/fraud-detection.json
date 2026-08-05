@@ -1,0 +1,9 @@
+{
+    "name": "FraudDetectionRule",
+    "version": "1.0.0",
+    "expression": "amount > 10000 && country != \"US\"",
+    "inputSchema": {
+        "amount": "double",
+        "country": "String"
+    }
+}
