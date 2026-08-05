@@ -1,0 +1,9 @@
+{
+    "name": "DataValidationRule",
+    "version": "1.0.0",
+    "expression": "emailLength > 5 && (status == \"ACTIVE\" || status == \"PENDING\")",
+    "inputSchema": {
+        "emailLength": "int",
+        "status": "String"
+    }
+}

@@ -1,0 +1,10 @@
+{
+    "name": "InventoryReorderRule",
+    "version": "1.0.0",
+    "expression": "stockCount < minimumThreshold && autoReorder == true",
+    "inputSchema": {
+        "stockCount": "int",
+        "minimumThreshold": "int",
+        "autoReorder": "boolean"
+    }
+}
