@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   release:
     name: Build & Publish Release Distribution
@@ -28,6 +31,8 @@ jobs:
       - name: Create GitHub Release and Upload Distribution Assets
         uses: softprops/action-gh-release@v2
         with:
+          name: "Helix Scripting Engine v1.0.0-SNAPSHOT"
+          body_path: RELEASE_NOTES.md
           files: |
             engine-core/target/*-bin.zip
             engine-core/target/*.jar
