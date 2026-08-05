@@ -1,0 +1,60 @@
+<assembly xmlns="http://maven.apache.org/ASSEMBLY/2.2.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.2.0 http://maven.apache.org/xsd/assembly-2.2.0.xsd">
+    <id>bin</id>
+    <formats>
+        <format>zip</format>
+        <format>tar.gz</format>
+    </formats>
+    <includeBaseDirectory>true</includeBaseDirectory>
+
+    <fileSets>
+        <!-- Executable Startup Scripts -->
+        <fileSet>
+            <directory>${project.basedir}/../scripts</directory>
+            <outputDirectory>scripts</outputDirectory>
+            <fileMode>0755</fileMode>
+            <includes>
+                <include>*.sh</include>
+            </includes>
+        </fileSet>
+
+        <!-- Example Rules and Context Files -->
+        <fileSet>
+            <directory>${project.basedir}/../examples</directory>
+            <outputDirectory>examples</outputDirectory>
+            <includes>
+                <include>**/*</include>
+            </includes>
+        </fileSet>
+
+        <!-- Documentation and License Files -->
+        <fileSet>
+            <directory>${project.basedir}/..</directory>
+            <outputDirectory></outputDirectory>
+            <includes>
+                <include>README.md</include>
+                <include>CONTRIBUTING.md</include>
+                <include>LICENSE</include>
+            </includes>
+        </fileSet>
+
+        <!-- Architecture & Tuning Documentation -->
+        <fileSet>
+            <directory>${project.basedir}/../docs</directory>
+            <outputDirectory>docs</outputDirectory>
+            <includes>
+                <include>**/*</include>
+            </includes>
+        </fileSet>
+
+        <!-- Target JAR Artifacts -->
+        <fileSet>
+            <directory>${project.build.directory}</directory>
+            <outputDirectory>lib</outputDirectory>
+            <includes>
+                <include>*.jar</include>
+            </includes>
+        </fileSet>
+    </fileSets>
+</assembly>
