@@ -1,0 +1,9 @@
+{
+    "name": "SlaMonitorRule",
+    "version": "1.0.0",
+    "expression": "responseTimeMs > 500 || httpStatus == 500",
+    "inputSchema": {
+        "responseTimeMs": "long",
+        "httpStatus": "int"
+    }
+}

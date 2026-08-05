@@ -1,0 +1,9 @@
+{
+    "name": "DiscountCalculatorRule",
+    "version": "1.0.0",
+    "expression": "cartTotal >= 150.0 || loyaltyMember == true",
+    "inputSchema": {
+        "cartTotal": "double",
+        "loyaltyMember": "boolean"
+    }
+}

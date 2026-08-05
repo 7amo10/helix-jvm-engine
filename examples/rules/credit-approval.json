@@ -1,0 +1,9 @@
+{
+    "name": "CreditApprovalRule",
+    "version": "1.0.0",
+    "expression": "creditScore >= 700 && debtToIncomeRatio < 0.35",
+    "inputSchema": {
+        "creditScore": "int",
+        "debtToIncomeRatio": "double"
+    }
+}
