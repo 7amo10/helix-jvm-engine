@@ -64,3 +64,8 @@ build/
 # OS
 Thumbs.db
 .directory
+
+# Internal docs & specs
+docs/superpowers/
+docs/architecture.d2
+
