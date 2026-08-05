@@ -1,0 +1,63 @@
+@startuml c4-component-agent
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Component Diagram - Java Agent Module
+
+Container_Boundary(agent, "Java Agent") {
+    Component(agent_main, "Agent Main", "Java", "Entry points: premain() and agentmain()")
+    Component(agent_config, "Agent Configuration", "Java", "Parses agent.properties")
+    
+    Component(rule_transformer, "Rule Class Transformer", "Java", "Transforms rule classes with ASM")
+    Component(allocation_tracker, "Allocation Tracker", "Java", "Tracks object allocations")
+    Component(method_interceptor, "Method Interceptor", "Java", "Injects entry/exit hooks")
+    
+    Component(memory_analyzer, "Memory Analyzer", "Java", "JOL-based object layout analysis")
+    Component(object_inspector, "Object Layout Inspector", "Java", "Analyzes headers, padding, references")
+    Component(compressed_oops_detector, "Compressed Oops Detector", "Java", "Detects -XX:+UseCompressedOops")
+    
+    Component(engine_control_mbean, "EngineControl MBean", "Java", "Runtime control operations")
+    Component(profiler_control_mbean, "ProfilerControl MBean", "Java", "Profiling control operations")
+    Component(mbean_registry, "MBean Registry", "Java", "Registers MBeans with platform MBeanServer")
+    
+    Component(agent_callback, "Agent Callback", "Java", "Receives callbacks from instrumented code")
+    Component(execution_stats, "Execution Stats", "Java", "Thread-local execution statistics")
+}
+
+System_Ext(instrumentation_api, "java.lang.instrument", "JVM Instrumentation API")
+System_Ext(jol, "Java Object Layout", "JOL library")
+System_Ext(asm, "ASM", "Bytecode manipulation")
+System_Ext(jmx_server, "Platform MBean Server", "JMX")
+Container_Ext(engine_core, "Engine Core", "Target application")
+
+Rel(agent_main, agent_config, "Loads", "Properties")
+Rel(agent_main, instrumentation_api, "Registers with", "Instrumentation")
+
+Rel(agent_main, rule_transformer, "Registers", "ClassFileTransformer")
+Rel(agent_main, allocation_tracker, "Registers", "ClassFileTransformer")
+Rel(agent_main, memory_analyzer, "Starts", "Background analyzer")
+Rel(agent_main, mbean_registry, "Registers", "MBeans")
+
+Rel(rule_transformer, method_interceptor, "Uses", "ASM visitor")
+Rel(rule_transformer, asm, "Transforms with", "ASM API")
+Rel(allocation_tracker, asm, "Transforms with", "ASM API")
+
+Rel(method_interceptor, agent_callback, "Injects calls to", "Method refs")
+Rel(allocation_tracker, agent_callback, "Injects calls to", "Method refs")
+Rel(agent_callback, execution_stats, "Records", "Stats")
+
+Rel(memory_analyzer, object_inspector, "Uses", "Analysis")
+Rel(memory_analyzer, compressed_oops_detector, "Checks", "JVM flags")
+Rel(memory_analyzer, jol, "Analyzes with", "JOL API")
+
+Rel(mbean_registry, engine_control_mbean, "Registers", "MBean")
+Rel(mbean_registry, profiler_control_mbean, "Registers", "MBean")
+Rel(mbean_registry, jmx_server, "Registers with", "JMX")
+
+Rel(engine_control_mbean, engine_core, "Controls", "Operations")
+Rel(profiler_control_mbean, engine_core, "Controls", "Profiling")
+
+Rel(instrumentation_api, engine_core, "Transforms classes", "Bytecode")
+
+@enduml

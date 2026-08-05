@@ -1,0 +1,51 @@
+@startuml c4-container
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Container Diagram - JVM Scripting Engine & Profiler
+
+Person(developer, "Java Developer", "Studies JVM internals")
+Person(operator, "System Operator", "Monitors engine")
+
+System_Boundary(engine_system, "JVM Scripting Engine") {
+    Container(api, "Engine API", "Java Library", "Public contracts and interfaces for rules engine and profiler")
+    
+    Container(core, "Engine Core", "Java Application", "JSON rule parsing, bytecode generation (ByteBuddy/ASM), hierarchical ClassLoaders, tiered cache, execution engine")
+    
+    Container(profiler, "Profiler Module", "Java Application", "JIT compilation monitoring, GC log analysis, async-profiler integration, JFR custom events, live dashboard")
+    
+    Container(agent, "Java Agent", "Java Agent JAR", "Class transformation, allocation tracking, JOL memory analysis, JMX MBean exposure")
+    
+    Container(experiments, "Experiments Module", "Java Application", "JVM behavior experiments (Metaspace, JIT, GC, object layout) and JMH benchmarks")
+    
+    ContainerDb(cache_l1, "L1 Cache", "Caffeine LRU", "Strong references - hot rules")
+    ContainerDb(cache_l2, "L2 Cache", "ConcurrentHashMap", "Soft references - warm rules")
+    ContainerDb(cache_l3, "L3 Cache", "ConcurrentHashMap", "Weak references - cold rules")
+}
+
+System_Ext(jmx_tools, "JMX Monitoring Tools", "JConsole, VisualVM")
+System_Ext(jfr_viewer, "JDK Mission Control", "JFR viewer")
+System_Ext(async_profiler_lib, "async-profiler", "Native profiler")
+
+Rel(developer, core, "Submits JSON rules", "JSON")
+Rel(operator, agent, "Monitors via JMX", "JMX")
+
+Rel(core, api, "Implements", "Java")
+Rel(profiler, api, "Implements", "Java")
+Rel(agent, api, "Uses", "Java")
+Rel(experiments, api, "Uses", "Java")
+
+Rel(core, cache_l1, "Caches hot rules", "Strong refs")
+Rel(core, cache_l2, "Caches warm rules", "Soft refs")
+Rel(core, cache_l3, "Caches cold rules", "Weak refs")
+
+Rel(profiler, core, "Monitors execution", "Event bus")
+Rel(agent, core, "Instruments bytecode", "ASM transformation")
+Rel(experiments, core, "Executes experiments", "Java")
+
+Rel(agent, jmx_tools, "Exposes MBeans", "JMX")
+Rel(profiler, jfr_viewer, "Generates recordings", "JFR")
+Rel(profiler, async_profiler_lib, "Invokes profiler", "JNI")
+
+@enduml
