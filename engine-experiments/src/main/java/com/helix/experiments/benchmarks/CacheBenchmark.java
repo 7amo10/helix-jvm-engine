@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit;
 @Warmup(iterations = 2, time = 1)
 @Measurement(iterations = 3, time = 1)
 @State(Scope.Benchmark)
-@Fork(1)
+@Fork(0)
 public class CacheBenchmark {
 
     @Param({"100", "1000"})
