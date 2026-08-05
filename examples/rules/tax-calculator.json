@@ -1,0 +1,9 @@
+{
+    "name": "TaxCalculatorRule",
+    "version": "1.0.0",
+    "expression": "taxableIncome > 50000.0 && stateTaxExempt == false",
+    "inputSchema": {
+        "taxableIncome": "double",
+        "stateTaxExempt": "boolean"
+    }
+}

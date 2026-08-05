@@ -1,0 +1,9 @@
+{
+    "name": "SecurityAclRule",
+    "version": "1.0.0",
+    "expression": "role == \"ADMIN\" || (role == \"MANAGER\" && department == \"FINANCE\")",
+    "inputSchema": {
+        "role": "String",
+        "department": "String"
+    }
+}

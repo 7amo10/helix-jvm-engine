@@ -1,0 +1,9 @@
+{
+    "name": "DynamicPricingRule",
+    "version": "1.0.0",
+    "expression": "demandMultiplier > 1.5 && surgeActive == true",
+    "inputSchema": {
+        "demandMultiplier": "double",
+        "surgeActive": "boolean"
+    }
+}

@@ -7,7 +7,7 @@ import org.slf4j.LoggerFactory;
 import java.util.Objects;
 
 /**
- * Bytecode & AST Optimizer engine orchestrating constant folding and dead code elimination passes.
+ * Bytecode &amp; AST Optimizer engine orchestrating constant folding and dead code elimination passes.
  * Can be enabled or disabled dynamically.
  */
 public class BytecodeOptimizer {

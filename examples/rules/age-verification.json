@@ -1,0 +1,9 @@
+{
+    "name": "AgeVerificationRule",
+    "version": "1.0.0",
+    "expression": "age >= 21 && verifiedIdentity == true",
+    "inputSchema": {
+        "age": "int",
+        "verifiedIdentity": "boolean"
+    }
+}

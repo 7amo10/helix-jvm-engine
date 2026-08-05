@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit;
 @Warmup(iterations = 2, time = 1)
 @Measurement(iterations = 3, time = 1)
 @State(Scope.Thread)
-@Fork(1)
+@Fork(0)
 public class CompilationBenchmark {
 
     private RuleCompiler byteBuddyCompiler;

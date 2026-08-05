@@ -13,9 +13,9 @@ public class BenchmarkRunner {
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
                 .include(CompilationBenchmark.class.getSimpleName())
-                .forks(1)
-                .warmupIterations(2)
-                .measurementIterations(3)
+                .forks(0)
+                .warmupIterations(1)
+                .measurementIterations(2)
                 .build();
 
         new Runner(opt).run();

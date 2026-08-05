@@ -1,0 +1,38 @@
+name: Helix Automated Release Packaging
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Build & Publish Release Distribution
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build Library JARs and Distribution Package
+        run: |
+          mvn clean package -DskipTests -B
+
+      - name: Create GitHub Release and Upload Distribution Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            engine-core/target/*-bin.zip
+            engine-core/target/*.jar
+            engine-agent/target/*.jar
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
