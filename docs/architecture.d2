@@ -1,0 +1,89 @@
+direction: down
+
+vars: {
+  d2-config: {
+    layout-engine: elk
+    theme-id: 0
+  }
+}
+
+CLI_TUI_Layer: "CLI & TUI Layer (Picocli / Lanterna)" {
+  style.fill: "#1E1E2E"
+  style.stroke: "#89B4FA"
+  style.font-color: "#CDD6F4"
+
+  HelixApp: "HelixApplication\n(Entrypoint)"
+  Picocli: "Picocli Command Parser\n(compile, execute, profile, experiment)"
+  TUI: "Lanterna TUI Dashboard\n(Live Profiling GUI)"
+  Formatter: "OutputFormatter / JsonFormatter\n(Text / JSON / CSV)"
+
+  HelixApp -> Picocli
+  Picocli -> TUI
+  Picocli -> Formatter
+}
+
+Engine_Core: "Engine Core Layer (engine-core)" {
+  style.fill: "#181825"
+  style.stroke: "#A6E3A1"
+  style.font-color: "#CDD6F4"
+
+  Compiler: "RuleCompiler" {
+    Parser: "JSON AST Parser"
+    TypeCheck: "Type Checker"
+    Optimizer: "AST Optimizer"
+    Bytecode: "Bytecode Generators\n(ByteBuddy & ASM)"
+
+    Parser -> TypeCheck -> Optimizer -> Bytecode
+  }
+
+  ClassLoaderMgr: "ClassLoaderManager" {
+    Isolated: "ISOLATED Mode\n(Per-Rule Loader)"
+    Shared: "SHARED Mode\n(Global Loader)"
+    Hierarchical: "HIERARCHICAL Mode\n(Tenant/Category Loaders)"
+  }
+
+  Cache: "TieredRuleCache" {
+    L1: "L1 Cache (Strong Reference)"
+    L2: "L2 Cache (Soft Reference)"
+    L3: "L3 Cache (Weak Reference)"
+    L1 -> L2 -> L3
+  }
+
+  Executors: "Execution Subsystem" {
+    Sync: "SyncExecutor"
+    Async: "AsyncExecutor (CompletableFuture)"
+    Batch: "BatchExecutor (Parallel Workers)"
+  }
+}
+
+Profiler_Agent: "Profiler & Java Agent Layer (engine-profiler / engine-agent)" {
+  style.fill: "#313244"
+  style.stroke: "#FAB387"
+  style.font-color: "#CDD6F4"
+
+  JIT: "JitCompilationMonitor\n(C1/C2 Tiers & Inlining)"
+  JFR: "JfrRecordingManager\n(Flight Recorder Events)"
+  Health: "EngineHealthCheck\n(Status & Diagnostics)"
+  Agent: "AgentMain & RuleClassTransformer\n(ASM Instrumentation)"
+  JOL: "ObjectLayoutInspector\n(Memory Layout & Header Analysis)"
+}
+
+Experiments: "JVM Behavior Experiments (engine-experiments)" {
+  style.fill: "#45475A"
+  style.stroke: "#F38BA8"
+  style.font-color: "#CDD6F4"
+
+  Exp1: "MetaspaceLeakExperiment"
+  Exp2: "JitCompilationExperiment"
+  Exp3: "GcStressExperiment"
+  Exp4: "SafepointExperiment"
+}
+
+CLI_TUI_Layer.Picocli -> Engine_Core.Compiler: "Triggers Compilation"
+CLI_TUI_Layer.Picocli -> Engine_Core.Executors: "Triggers Execution"
+Engine_Core.Compiler -> Engine_Core.ClassLoaderMgr: "Loads Bytecode"
+Engine_Core.Compiler -> Engine_Core.Cache: "Stores Compiled Rules"
+Engine_Core.Executors -> Engine_Core.Cache: "Lookups Compiled Rules"
+Profiler_Agent.JIT -> Engine_Core.Compiler: "Monitors Tier Transitions"
+Profiler_Agent.Agent -> Engine_Core.Executors: "Instruments Bytecode"
+Experiments -> Profiler_Agent: "Measures JVM Behaviors"

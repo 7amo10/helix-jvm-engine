@@ -1,0 +1,153 @@
+@startuml data-flow
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam ArrowColor #333333
+skinparam ParticipantBackgroundColor #E8F4F8
+skinparam ParticipantBorderColor #0088CC
+
+title Rule Compilation & Execution Flow
+
+participant "Developer" as Dev
+participant "Rule Parser" as Parser
+participant "AST Builder" as AST
+participant "ByteBuddy\nGenerator" as BB
+participant "ClassLoader\nManager" as CLM
+participant "Rule\nClassLoader" as RCL
+participant "Tiered\nCache" as Cache
+participant "Sync\nExecutor" as Exec
+participant "JFR\nRecorder" as JFR
+participant "Agent\nCallback" as Agent
+
+== Rule Compilation Phase ==
+
+Dev -> Parser: Submit JSON rule
+activate Parser
+
+Parser -> AST: Parse expressions
+activate AST
+AST -> AST: Build expression tree
+AST -> AST: Type checking
+AST --> Parser: AST
+deactivate AST
+
+Parser -> BB: Generate bytecode
+activate BB
+BB -> BB: Create class definition
+BB -> BB: Implement execute() method
+BB --> Parser: byte[] bytecode
+deactivate BB
+
+Parser -> CLM: Request ClassLoader
+activate CLM
+CLM -> RCL: Create RuleClassLoader
+activate RCL
+RCL --> CLM: ClassLoader instance
+deactivate RCL
+
+CLM -> RCL: defineClass(bytecode)
+activate RCL
+RCL -> RCL: Load class metadata\n→ Metaspace
+RCL --> CLM: Class<?> ruleClass
+deactivate RCL
+
+CLM --> Parser: Compiled rule
+deactivate CLM
+
+Parser -> Cache: Store in L3 (WeakReference)
+activate Cache
+Cache --> Parser: Cached
+deactivate Cache
+
+Parser -> JFR: Emit RuleCompilationEvent
+activate JFR
+JFR --> Parser: Recorded
+deactivate JFR
+
+Parser --> Dev: CompiledRule
+deactivate Parser
+
+== Rule Execution Phase ==
+
+Dev -> Exec: Execute rule with context
+activate Exec
+
+Exec -> Cache: Get from cache
+activate Cache
+Cache -> Cache: Check L1 (Strong)\n→ MISS
+Cache -> Cache: Check L2 (Soft)\n→ MISS
+Cache -> Cache: Check L3 (Weak)\n→ HIT
+Cache -> Cache: Promote to L2
+Cache --> Exec: CompiledRule
+deactivate Cache
+
+Exec -> Agent: onMethodEntry()
+activate Agent
+Agent -> Agent: Record start time
+Agent --> Exec: Continue
+deactivate Agent
+
+Exec -> RCL: Invoke execute(context)
+activate RCL
+RCL -> RCL: Execute bytecode
+RCL --> Exec: Result
+deactivate RCL
+
+Exec -> Agent: onMethodExit()
+activate Agent
+Agent -> Agent: Record duration
+Agent --> Exec: Continue
+deactivate Agent
+
+Exec -> JFR: Emit RuleExecutionEvent
+activate JFR
+JFR --> Exec: Recorded
+deactivate JFR
+
+Exec --> Dev: ExecutionResult
+deactivate Exec
+
+== GC Scenario (Memory Pressure) ==
+
+...Memory pressure occurs...
+
+Cache -> Cache: GC clears L3\nWeakReference
+Cache -> Cache: GC clears L2\nSoftReference under pressure
+Cache -> JFR: Emit CacheEvictionEvent
+activate JFR
+JFR --> Cache: Recorded
+deactivate JFR
+
+note right of Cache
+  L1 (Strong refs) survives GC
+  L2 (Soft refs) cleared under pressure
+  L3 (Weak refs) cleared immediately
+end note
+
+== Next Execution After GC ==
+
+Dev -> Exec: Execute same rule
+activate Exec
+
+Exec -> Cache: Get from cache
+activate Cache
+Cache -> Cache: Check L1 → MISS
+Cache -> Cache: Check L2 → MISS (GC'd)
+Cache -> Cache: Check L3 → MISS (GC'd)
+Cache --> Exec: Cache MISS
+deactivate Cache
+
+Exec -> Parser: Recompile rule
+activate Parser
+note right: Full compilation cycle repeats
+Parser --> Exec: Freshly compiled rule
+deactivate Parser
+
+Exec -> Cache: Store in L3
+activate Cache
+Cache --> Exec: Cached
+deactivate Cache
+
+Exec --> Dev: ExecutionResult\n(slower due to recompilation)
+deactivate Exec
+
+@enduml

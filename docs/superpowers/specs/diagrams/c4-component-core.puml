@@ -1,0 +1,68 @@
+@startuml c4-component-core
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Component Diagram - Engine Core Module
+
+Container_Boundary(core, "Engine Core") {
+    Component(rule_parser, "Rule Parser", "Java", "Parses JSON rules into AST")
+    Component(ast, "AST Builder", "Java", "Builds Abstract Syntax Tree from expressions")
+    Component(type_checker, "Type Checker", "Java", "Validates types and resolves methods")
+    
+    Component(bytebuddy_gen, "ByteBuddy Generator", "Java", "High-level bytecode generation")
+    Component(asm_gen, "ASM Generator", "Java", "Low-level bytecode manipulation")
+    Component(bytecode_optimizer, "Bytecode Optimizer", "Java", "Constant folding, dead code elimination")
+    
+    Component(classloader_mgr, "ClassLoader Manager", "Java", "Manages hierarchical ClassLoaders")
+    Component(rule_classloader, "Rule ClassLoader", "Java", "Isolated ClassLoader per rule")
+    Component(shared_loader, "Shared Utility ClassLoader", "Java", "Shared dependencies")
+    
+    Component(sync_executor, "Sync Executor", "Java", "Synchronous rule execution")
+    Component(async_executor, "Async Executor", "Java", "Asynchronous execution with CompletableFuture")
+    Component(batch_executor, "Batch Executor", "Java", "Parallel batch execution")
+    
+    Component(cache_manager, "Cache Manager", "Java", "Manages tiered cache (L1/L2/L3)")
+    Component(promotion_policy, "Promotion Policy", "Java", "Decides cache tier promotions")
+    Component(ref_monitor, "Reference Queue Monitor", "Java", "Tracks GC'd references")
+    
+    Component(event_bus, "Event Bus", "Java", "Internal event distribution")
+    Component(metrics, "Metrics Collector", "Java", "Collects performance metrics")
+}
+
+Container_Ext(api, "Engine API", "Interfaces")
+ContainerDb(l1_cache, "L1 Cache", "Strong refs")
+ContainerDb(l2_cache, "L2 Cache", "Soft refs")
+ContainerDb(l3_cache, "L3 Cache", "Weak refs")
+
+Rel(rule_parser, ast, "Builds", "AST nodes")
+Rel(ast, type_checker, "Validates", "Type info")
+
+Rel(type_checker, bytebuddy_gen, "Primary path", "AST")
+Rel(type_checker, asm_gen, "Experimental path", "AST")
+Rel(bytebuddy_gen, bytecode_optimizer, "Optimizes", "Bytecode")
+Rel(asm_gen, bytecode_optimizer, "Optimizes", "Bytecode")
+
+Rel(bytecode_optimizer, classloader_mgr, "Loads class", "byte[]")
+Rel(classloader_mgr, rule_classloader, "Creates", "ClassLoader")
+Rel(classloader_mgr, shared_loader, "Uses parent", "ClassLoader")
+
+Rel(rule_classloader, sync_executor, "Instantiates rule", "Class")
+Rel(sync_executor, async_executor, "Wraps", "CompletableFuture")
+Rel(sync_executor, batch_executor, "Parallel execution", "Stream")
+
+Rel(sync_executor, cache_manager, "Checks cache", "CacheKey")
+Rel(cache_manager, promotion_policy, "Consults", "Stats")
+Rel(cache_manager, ref_monitor, "Monitors", "ReferenceQueue")
+
+Rel(cache_manager, l1_cache, "Strong refs", "Cache ops")
+Rel(cache_manager, l2_cache, "Soft refs", "Cache ops")
+Rel(cache_manager, l3_cache, "Weak refs", "Cache ops")
+
+Rel(metrics, event_bus, "Subscribes", "Events")
+Rel(sync_executor, event_bus, "Publishes", "Execution events")
+Rel(cache_manager, event_bus, "Publishes", "Cache events")
+
+Rel(rule_parser, api, "Implements", "RuleEngine")
+
+@enduml
