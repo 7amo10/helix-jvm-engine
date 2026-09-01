@@ -69,3 +69,12 @@ Thumbs.db
 docs/superpowers/
 docs/architecture.d2
 
+# Documentation Website
+website/node_modules/
+website/.docusaurus/
+website/build/
+website/static/api/
+*.cast
+
+
+

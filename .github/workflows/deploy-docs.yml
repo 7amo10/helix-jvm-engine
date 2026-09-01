@@ -1,0 +1,76 @@
+name: Deploy Documentation to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'website/**'
+      - 'docs/**'
+      - '.github/workflows/deploy-docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: 'pages'
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install D2 CLI
+        run: |
+          curl -fsSL https://d2lang.com/install.sh | sh -s --
+
+      - name: Generate Javadoc and Compile D2 Diagrams
+        run: |
+          ./scripts/generate-diagrams.sh
+          mvn javadoc:aggregate -DskipTests -B
+          mkdir -p website/static/api
+          if [ -d "target/site/apidocs" ]; then
+            cp -r target/site/apidocs/* website/static/api/
+          fi
+
+      - name: Install Website Dependencies & Build Site
+        run: |
+          cd website
+          npm ci
+          npm run build
+
+      - name: Setup GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: website/build
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
