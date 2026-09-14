@@ -101,6 +101,11 @@ const config: Config = {
           position: 'left',
         },
         {
+          to: '/docs/helix-cortex/overview',
+          label: 'Helix Cortex',
+          position: 'left',
+        },
+        {
           href: 'pathname:///api/index.html',
           label: 'Javadoc API',
           position: 'right',
@@ -146,6 +151,10 @@ const config: Config = {
             {
               label: 'Interactive TUI',
               to: '/docs/api-and-cli-reference/tui-dashboard',
+            },
+            {
+              label: 'Helix Cortex Control Plane',
+              to: '/docs/helix-cortex/overview',
             },
           ],
         },

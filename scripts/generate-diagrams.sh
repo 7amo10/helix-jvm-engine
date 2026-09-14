@@ -188,4 +188,49 @@ mark -> klass -> fields -> pad
 EOF
 d2 --theme=200 /tmp/object-layout.d2 "$TARGET_DIR/object-layout.svg"
 
+# 5. Cortex System Architecture Diagram
+cat << 'EOF' > /tmp/cortex-architecture.d2
+direction: right
+
+client: "Client / User" {
+  shape: person
+  style.fill: "#f8f9fa"
+}
+
+cortex: "helix-cortex\n(Enterprise Cloud Tier)" {
+  style.fill: "#e8f5e9"
+  style.stroke: "#2e7d32"
+  style.stroke-width: 2
+
+  api: "REST API & Security\n(JAX-RS 3.1 / JWT RBAC)"
+  supervisor: "Orchestration & Telemetry\n(BCE Controls / SSE Stream)"
+  db: "Enterprise Persistence\n(PostgreSQL 16 / HikariCP)" {
+    shape: cylinder
+    style.fill: "#c8e6c9"
+  }
+}
+
+helix: "helix-jvm-engine\n(Execution Core)" {
+  style.fill: "#e3f2fd"
+  style.stroke: "#1565c0"
+  style.stroke-width: 2
+
+  compiler: "Bytecode Compiler\n(ByteBuddy & ASM)"
+  isolation: "ClassLoader Sandbox\n(Multi-Tenant Isolation)"
+  exec: "Execution Engine\n(>120,000 ops/sec)"
+}
+
+client -> cortex.api: "1. REST Request (JWT)"
+cortex.api -> cortex.supervisor: "Dispatch"
+
+cortex.supervisor -> helix.compiler: "2. Delegate Rule"
+helix.compiler -> helix.isolation: "Isolate"
+helix.isolation -> helix.exec: "Execute"
+helix.exec -> cortex.supervisor: "3. Results & Metrics"
+
+cortex.supervisor -> cortex.db: "4. Store Audit & History"
+cortex.supervisor -> client: "5. Response & Live SSE"
+EOF
+d2 /tmp/cortex-architecture.d2 "$TARGET_DIR/cortex-architecture.svg"
+
 echo "[SUCCESS] D2 diagrams generated in $TARGET_DIR"

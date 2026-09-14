@@ -77,6 +77,19 @@ const sidebars: SidebarsConfig = {
         'performance-tuning/continuous-benchmarking',
       ],
     },
+    {
+      type: 'category',
+      label: 'Helix Cortex Platform',
+      collapsed: false,
+      collapsible: true,
+      items: [
+        'helix-cortex/overview',
+        'helix-cortex/architecture-integration',
+        'helix-cortex/deployment-and-setup',
+        'helix-cortex/api-and-telemetry',
+        'helix-cortex/enterprise-use-cases',
+      ],
+    },
   ],
 };
 
