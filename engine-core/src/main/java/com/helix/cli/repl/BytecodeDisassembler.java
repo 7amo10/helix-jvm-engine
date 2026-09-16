@@ -59,10 +59,22 @@ public class BytecodeDisassembler {
      * @return disassembled textual bytecode
      */
     public String disassembleExpression(String expression) {
+        return disassembleExpression(expression, false);
+    }
+
+    /**
+     * Compiles an expression using ASM with optional debug instrumentation and disassembles bytecode.
+     *
+     * @param expression rule expression text
+     * @param debug      whether debug probes are injected
+     * @return disassembled textual bytecode
+     */
+    public String disassembleExpression(String expression, boolean debug) {
         try {
+            com.helix.core.bytecode.BytecodeCompiler compiler = new com.helix.core.bytecode.BytecodeCompiler();
             ExpressionNode ast = expressionParser.parseAndFold(expression);
             Rule rule = new RuleNode("ReplRule", expression, Collections.emptyMap(), ast);
-            byte[] bytecode = asmGenerator.generateBytecode(rule, ast);
+            byte[] bytecode = compiler.generateBytecode(rule, debug);
             return disassemble(bytecode);
         } catch (Exception e) {
             return "// Failed to compile and disassemble expression: " + e.getMessage();

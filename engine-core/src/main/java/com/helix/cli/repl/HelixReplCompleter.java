@@ -18,7 +18,8 @@ public class HelixReplCompleter implements Completer {
     private final ExecutionContext context;
 
     private static final List<String> COMMANDS = List.of(
-            ":help", ":eval", ":set", ":context", ":vars", ":ast", ":bytecode", ":perf", ":load", ":clear", ":exit", ":quit"
+            ":help", ":eval", ":set", ":context", ":vars", ":ast", ":bytecode", ":perf",
+            ":load", ":clear", ":exit", ":quit", ":break", ":step", ":inspect", ":continue", ":debug"
     );
 
     private static final List<String> BUILTINS = List.of(
