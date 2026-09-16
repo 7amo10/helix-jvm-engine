@@ -1,8 +1,12 @@
 package com.helix.core.bytecode;
 
 import com.helix.core.parser.ast.AstVisitor;
+import com.helix.core.parser.ast.BinaryExpressionNode;
 import com.helix.core.parser.ast.BinaryOpNode;
+import com.helix.core.parser.ast.ComparisonNode;
 import com.helix.core.parser.ast.ExpressionNode;
+import com.helix.core.parser.ast.FieldAccessNode;
+import com.helix.core.parser.ast.FunctionCallNode;
 import com.helix.core.parser.ast.LiteralNode;
 import com.helix.core.parser.ast.MethodCallNode;
 import com.helix.core.parser.ast.UnaryOpNode;
@@ -83,6 +87,12 @@ public class ConstantFolder implements AstVisitor<ExpressionNode> {
             }
         }
 
+        if (node instanceof ComparisonNode) {
+            return new ComparisonNode(node.getOperator(), left, right);
+        }
+        if (node instanceof BinaryExpressionNode) {
+            return new BinaryExpressionNode(node.getOperator(), left, right);
+        }
         return new BinaryOpNode(node.getOperator(), left, right);
     }
 
@@ -94,6 +104,21 @@ public class ConstantFolder implements AstVisitor<ExpressionNode> {
             args.add(arg.accept(this));
         }
         return new MethodCallNode(target, node.getMethodName(), args);
+    }
+
+    @Override
+    public ExpressionNode visit(FieldAccessNode node) {
+        ExpressionNode target = node.getTarget().accept(this);
+        return new FieldAccessNode(target, node.getFieldName());
+    }
+
+    @Override
+    public ExpressionNode visit(FunctionCallNode node) {
+        List<ExpressionNode> args = new ArrayList<>();
+        for (ExpressionNode arg : node.getArguments()) {
+            args.add(arg.accept(this));
+        }
+        return new FunctionCallNode(node.getFunctionName(), args);
     }
 
     private ExpressionNode foldNumeric(BinaryOpNode.Operator op, Number n1, Number n2) {
@@ -120,6 +145,11 @@ public class ConstantFolder implements AstVisitor<ExpressionNode> {
                 if (isDouble) return new LiteralNode(n1.doubleValue() / n2.doubleValue());
                 if (isLong) return new LiteralNode(n1.longValue() / n2.longValue());
                 return new LiteralNode(n1.intValue() / n2.intValue());
+            }
+            case MODULO -> {
+                if (isDouble) return new LiteralNode(n1.doubleValue() % n2.doubleValue());
+                if (isLong) return new LiteralNode(n1.longValue() % n2.longValue());
+                return new LiteralNode(n1.intValue() % n2.intValue());
             }
             case GREATER_THAN -> {
                 return new LiteralNode(n1.doubleValue() > n2.doubleValue(), Boolean.class);
