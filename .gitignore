@@ -74,6 +74,7 @@ website/node_modules/
 website/.docusaurus/
 website/build/
 website/static/api/
+website/package-lock.json
 *.cast
 
 

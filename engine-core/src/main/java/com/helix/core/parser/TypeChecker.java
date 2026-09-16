@@ -3,6 +3,8 @@ package com.helix.core.parser;
 import com.helix.core.parser.ast.AstVisitor;
 import com.helix.core.parser.ast.BinaryOpNode;
 import com.helix.core.parser.ast.ExpressionNode;
+import com.helix.core.parser.ast.FieldAccessNode;
+import com.helix.core.parser.ast.FunctionCallNode;
 import com.helix.core.parser.ast.LiteralNode;
 import com.helix.core.parser.ast.MethodCallNode;
 import com.helix.core.parser.ast.UnaryOpNode;
@@ -91,7 +93,7 @@ public class TypeChecker implements AstVisitor<Class<?>> {
                 }
                 throw new RuntimeException(new TypeMismatchException("Operator '+' incompatible between " + leftType.getName() + " and " + rightType.getName()));
             }
-            case SUBTRACT, MULTIPLY, DIVIDE -> {
+            case SUBTRACT, MULTIPLY, DIVIDE, MODULO -> {
                 if (!isNumeric(leftType) || !isNumeric(rightType)) {
                     throw new RuntimeException(new TypeMismatchException("Operator '" + node.getOperator().getSymbol() + "' requires numeric operands but got " + leftType.getName() + " and " + rightType.getName()));
                 }
@@ -112,6 +114,53 @@ public class TypeChecker implements AstVisitor<Class<?>> {
                 }
                 yield Boolean.class;
             }
+        };
+    }
+
+    @Override
+    public Class<?> visit(FieldAccessNode node) {
+        String fullPath = node.getFullPath();
+        if (typeContext.getVariableType(fullPath).isPresent()) {
+            return typeContext.getVariableType(fullPath).get();
+        }
+        Class<?> targetType = node.getTarget().accept(this);
+        if (targetType == Object.class || java.util.Map.class.isAssignableFrom(targetType)) {
+            return Object.class;
+        }
+        String field = node.getFieldName();
+        String getterName = "get" + Character.toUpperCase(field.charAt(0)) + field.substring(1);
+        String isGetterName = "is" + Character.toUpperCase(field.charAt(0)) + field.substring(1);
+        for (Method m : targetType.getMethods()) {
+            if ((m.getName().equals(getterName) || m.getName().equals(isGetterName) || m.getName().equals(field))
+                    && m.getParameterCount() == 0) {
+                return m.getReturnType();
+            }
+        }
+        return Object.class;
+    }
+
+    @Override
+    public Class<?> visit(FunctionCallNode node) {
+        String fn = node.getFunctionName().toLowerCase();
+        return switch (fn) {
+            case "ml" -> Double.class;
+            case "len", "length" -> Integer.class;
+            case "abs" -> {
+                if (!node.getArguments().isEmpty()) {
+                    yield node.getArguments().get(0).accept(this);
+                }
+                yield Double.class;
+            }
+            case "max", "min" -> {
+                if (node.getArguments().size() >= 2) {
+                    Class<?> t1 = node.getArguments().get(0).accept(this);
+                    Class<?> t2 = node.getArguments().get(1).accept(this);
+                    yield promoteNumeric(t1, t2);
+                }
+                yield Double.class;
+            }
+            case "now" -> Long.class;
+            default -> Object.class;
         };
     }
 

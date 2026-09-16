@@ -1,8 +1,12 @@
 package com.helix.core.bytecode;
 
 import com.helix.core.parser.ast.AstVisitor;
+import com.helix.core.parser.ast.BinaryExpressionNode;
 import com.helix.core.parser.ast.BinaryOpNode;
+import com.helix.core.parser.ast.ComparisonNode;
 import com.helix.core.parser.ast.ExpressionNode;
+import com.helix.core.parser.ast.FieldAccessNode;
+import com.helix.core.parser.ast.FunctionCallNode;
 import com.helix.core.parser.ast.LiteralNode;
 import com.helix.core.parser.ast.MethodCallNode;
 import com.helix.core.parser.ast.UnaryOpNode;
@@ -13,7 +17,7 @@ import java.util.List;
 
 /**
  * AST Optimization pass that eliminates unreachable branches and redundant constant logical terms.
- * (e.g. true && x -> x, false && x -> false, true || x -> true, false || x -> x).
+ * (e.g. {@code true && x -> x}, {@code false && x -> false}, {@code true || x -> true}, {@code false || x -> x}).
  */
 public class DeadCodeEliminator implements AstVisitor<ExpressionNode> {
 
@@ -76,6 +80,12 @@ public class DeadCodeEliminator implements AstVisitor<ExpressionNode> {
             }
         }
 
+        if (node instanceof ComparisonNode) {
+            return new ComparisonNode(node.getOperator(), left, right);
+        }
+        if (node instanceof BinaryExpressionNode) {
+            return new BinaryExpressionNode(node.getOperator(), left, right);
+        }
         return new BinaryOpNode(node.getOperator(), left, right);
     }
 
@@ -87,5 +97,20 @@ public class DeadCodeEliminator implements AstVisitor<ExpressionNode> {
             args.add(arg.accept(this));
         }
         return new MethodCallNode(target, node.getMethodName(), args);
+    }
+
+    @Override
+    public ExpressionNode visit(FieldAccessNode node) {
+        ExpressionNode target = node.getTarget().accept(this);
+        return new FieldAccessNode(target, node.getFieldName());
+    }
+
+    @Override
+    public ExpressionNode visit(FunctionCallNode node) {
+        List<ExpressionNode> args = new ArrayList<>();
+        for (ExpressionNode arg : node.getArguments()) {
+            args.add(arg.accept(this));
+        }
+        return new FunctionCallNode(node.getFunctionName(), args);
     }
 }
