@@ -62,6 +62,7 @@
         <jol.version>0.17</jol.version>
         <picocli.version>4.7.5</picocli.version>
         <lanterna.version>3.1.1</lanterna.version>
+        <jline.version>3.25.1</jline.version>
 
         <!-- Maven Plugin Versions -->
         <maven.compiler.plugin.version>3.11.0</maven.compiler.plugin.version>
@@ -88,6 +89,11 @@
                 <artifactId>lanterna</artifactId>
                 <version>${lanterna.version}</version>
             </dependency>
+            <dependency>
+                <groupId>org.jline</groupId>
+                <artifactId>jline</artifactId>
+                <version>${jline.version}</version>
+            </dependency>
 
             <!-- ByteBuddy -->
             <dependency>
@@ -110,6 +116,11 @@
             <dependency>
                 <groupId>org.ow2.asm</groupId>
                 <artifactId>asm-commons</artifactId>
+                <version>${asm.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.ow2.asm</groupId>
+                <artifactId>asm-util</artifactId>
                 <version>${asm.version}</version>
             </dependency>
 
