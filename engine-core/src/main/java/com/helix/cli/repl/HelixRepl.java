@@ -2,9 +2,15 @@ package com.helix.cli.repl;
 
 import com.helix.api.CompiledRule;
 import com.helix.api.ExecutionContext;
+import com.helix.api.ExecutionResult;
 import com.helix.api.Rule;
 import com.helix.cli.ui.TerminalRenderer;
 import com.helix.core.bytecode.AstEvaluator;
+import com.helix.core.bytecode.BytecodeCompiler;
+import com.helix.core.debug.ConditionClause;
+import com.helix.core.debug.DebugHook;
+import com.helix.core.debug.DebugSession;
+import com.helix.core.debug.EvaluationFrame;
 import com.helix.core.parser.ExpressionParseException;
 import com.helix.core.parser.ExpressionRuleParser;
 import com.helix.core.parser.RuleParser;
@@ -27,8 +33,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 /**
  * Interactive JLine 3 Terminal REPL and HotSpot Bytecode Disassembler for Helix.
@@ -43,6 +53,11 @@ public class HelixRepl {
     private final AstTreeRenderer treeRenderer;
     private final BytecodeDisassembler disassembler;
     private final RuleParser ruleParser;
+    private final BytecodeCompiler bytecodeCompiler = new BytecodeCompiler();
+    private DebugSession debugSession = new DebugSession();
+    private boolean debugMode = false;
+    private ExecutorService debugExecutor;
+    private Future<ExecutionResult> activeExecution;
 
     private Terminal terminal;
     private LineReader lineReader;
@@ -243,6 +258,11 @@ public class HelixRepl {
             case ":context", ":vars" -> showContext();
             case ":load", ":l" -> loadFile(arg);
             case ":clear", ":cls" -> clearScreen();
+            case ":debug" -> handleDebug(arg);
+            case ":break" -> handleBreak(arg);
+            case ":step" -> handleStep();
+            case ":inspect" -> handleInspect(arg);
+            case ":continue", ":c" -> handleContinue();
             case ":exit", ":quit", ":q" -> running = false;
             default -> out.println(TerminalRenderer.ANSI_RED + "Unknown command: '" + cmd + "'. Type ':help' for available commands." + TerminalRenderer.ANSI_RESET);
         }
@@ -251,29 +271,50 @@ public class HelixRepl {
     private void evaluateExpression(String expr) {
         try {
             long parseStart = System.nanoTime();
-            ExpressionNode ast = parser.parse(expr);
             ExpressionNode folded = parser.parseAndFold(expr);
             long parseDuration = System.nanoTime() - parseStart;
 
             this.lastAst = folded;
             this.lastExpression = expr;
 
-            AstEvaluator evaluator = new AstEvaluator(context);
-            long evalStart = System.nanoTime();
-            Object result = folded.accept(evaluator);
-            long evalDuration = System.nanoTime() - evalStart;
+            boolean isDebugRun = debugMode || !debugSession.getBreakpoints().isEmpty() || debugSession.isStepMode();
 
-            this.lastResult = result;
-            context.setVariable("_", result);
-            context.setVariable("$it", result);
+            if (!isDebugRun) {
+                AstEvaluator evaluator = new AstEvaluator(context);
+                long evalStart = System.nanoTime();
+                Object result = folded.accept(evaluator);
+                long evalDuration = System.nanoTime() - evalStart;
 
-            String typeName = (result != null) ? result.getClass().getSimpleName() : "null";
-            double evalMicros = evalDuration / 1000.0;
-            double parseMicros = parseDuration / 1000.0;
+                this.lastResult = result;
+                context.setVariable("_", result);
+                context.setVariable("$it", result);
 
-            out.println(TerminalRenderer.ANSI_BOLD + TerminalRenderer.ANSI_GREEN + "=> " + result + TerminalRenderer.ANSI_RESET
-                    + "  \u001B[90m(" + typeName + ") [" + String.format("%.2f", evalMicros) + " µs eval, "
-                    + String.format("%.2f", parseMicros) + " µs parse]\u001B[0m");
+                String typeName = (result != null) ? result.getClass().getSimpleName() : "null";
+                double evalMicros = evalDuration / 1000.0;
+                double parseMicros = parseDuration / 1000.0;
+
+                out.println(TerminalRenderer.ANSI_BOLD + TerminalRenderer.ANSI_GREEN + "=> " + result + TerminalRenderer.ANSI_RESET
+                        + "  \u001B[90m(" + typeName + ") [" + String.format("%.2f", evalMicros) + " µs eval, "
+                        + String.format("%.2f", parseMicros) + " µs parse]\u001B[0m");
+                return;
+            }
+
+            // Debug evaluation path
+            List<ConditionClause> clauses = bytecodeCompiler.extractClauses(folded);
+            debugSession.setClauses(clauses);
+            DebugHook.setActiveSession(debugSession);
+
+            Rule rule = new RuleNode("ReplDebugRule", expr, Collections.emptyMap(), folded);
+            CompiledRule compiledRule = bytecodeCompiler.compile(rule, folded, true);
+
+            if (activeExecution != null && !activeExecution.isDone()) {
+                debugSession.continueExecution();
+            }
+
+            long initialPauseCount = debugSession.getPauseCount();
+            activeExecution = getDebugExecutor().submit(() -> compiledRule.execute(context));
+            waitForPauseOrCompletion("Hit breakpoint at", initialPauseCount);
+
         } catch (ExpressionParseException e) {
             out.println(TerminalRenderer.ANSI_RED + e.getMessage() + TerminalRenderer.ANSI_RESET);
         } catch (Exception e) {
@@ -313,7 +354,7 @@ public class HelixRepl {
         }
 
         out.println(TerminalRenderer.ANSI_BOLD + TerminalRenderer.ANSI_CYAN + "=== HotSpot JVM Disassembled Bytecode (javap -v format) ===" + TerminalRenderer.ANSI_RESET);
-        String rawDisassembly = disassembler.disassembleExpression(targetExpr);
+        String rawDisassembly = disassembler.disassembleExpression(targetExpr, debugMode);
         out.println(disassembler.colorize(rawDisassembly));
     }
 
@@ -495,6 +536,212 @@ public class HelixRepl {
         out.flush();
     }
 
+    private void handleDebug(String arg) {
+        if ("on".equalsIgnoreCase(arg)) {
+            debugMode = true;
+        } else if ("off".equalsIgnoreCase(arg)) {
+            debugMode = false;
+        } else if (arg.isEmpty()) {
+            debugMode = !debugMode;
+        } else {
+            out.println(TerminalRenderer.ANSI_YELLOW + "Usage: :debug [on|off]" + TerminalRenderer.ANSI_RESET);
+            return;
+        }
+        if (debugMode) {
+            out.println(TerminalRenderer.ANSI_BOLD + TerminalRenderer.ANSI_GREEN + "[DEBUG] Debug mode ENABLED." + TerminalRenderer.ANSI_RESET
+                    + " Dynamic ASM bytecode probe hooks active.");
+        } else {
+            out.println(TerminalRenderer.ANSI_BOLD + TerminalRenderer.ANSI_YELLOW + "[DEBUG] Debug mode DISABLED." + TerminalRenderer.ANSI_RESET
+                    + " Zero-overhead standard compilation active.");
+        }
+    }
+
+    private void handleBreak(String arg) {
+        if ("clear".equalsIgnoreCase(arg)) {
+            debugSession.clearAllBreakpoints();
+            out.println(TerminalRenderer.ANSI_GREEN + "[DEBUG] All breakpoints cleared." + TerminalRenderer.ANSI_RESET);
+            return;
+        }
+
+        if (arg.isEmpty() || "list".equalsIgnoreCase(arg)) {
+            List<ConditionClause> clauses = debugSession.getClauses();
+            if (clauses.isEmpty() && lastAst != null) {
+                clauses = bytecodeCompiler.extractClauses(lastAst);
+                debugSession.setClauses(clauses);
+            }
+
+            if (clauses.isEmpty()) {
+                out.println(TerminalRenderer.ANSI_YELLOW + "No condition clauses identified in current expression." + TerminalRenderer.ANSI_RESET);
+                if (!debugSession.getBreakpoints().isEmpty()) {
+                    out.println("Active breakpoint indices: " + debugSession.getBreakpoints());
+                }
+                return;
+            }
+
+            out.println(TerminalRenderer.ANSI_BOLD + "+-------+-------+-----------------------------------------------------------+" + TerminalRenderer.ANSI_RESET);
+            out.println(TerminalRenderer.ANSI_BOLD + "| Index | Break | AST Condition Clause                                      |" + TerminalRenderer.ANSI_RESET);
+            out.println(TerminalRenderer.ANSI_BOLD + "+-------+-------+-----------------------------------------------------------+" + TerminalRenderer.ANSI_RESET);
+            for (ConditionClause clause : clauses) {
+                boolean bp = debugSession.hasBreakpoint(clause.getIndex());
+                String bpMark = bp ? (TerminalRenderer.ANSI_RED + " [*] " + TerminalRenderer.ANSI_RESET) : " [ ] ";
+                String desc = clause.getDescription();
+                if (desc.length() > 55) desc = desc.substring(0, 52) + "...";
+                out.printf("| %-5d | %s | %-57s |%n", clause.getIndex(), bpMark, desc);
+            }
+            out.println(TerminalRenderer.ANSI_BOLD + "+-------+-------+-----------------------------------------------------------+" + TerminalRenderer.ANSI_RESET);
+            return;
+        }
+
+        try {
+            int index = Integer.parseInt(arg);
+            if (debugSession.hasBreakpoint(index)) {
+                debugSession.clearBreakpoint(index);
+                out.println(TerminalRenderer.ANSI_YELLOW + "[DEBUG] Breakpoint removed from clause [" + index + "]." + TerminalRenderer.ANSI_RESET);
+            } else {
+                debugSession.setBreakpoint(index);
+                out.println(TerminalRenderer.ANSI_GREEN + "[DEBUG] Breakpoint set at clause [" + index + "]." + TerminalRenderer.ANSI_RESET);
+            }
+        } catch (NumberFormatException e) {
+            out.println(TerminalRenderer.ANSI_YELLOW + "Usage: :break [clause-index | list | clear]" + TerminalRenderer.ANSI_RESET);
+        }
+    }
+
+    private void handleStep() {
+        if (!debugSession.isPaused()) {
+            debugSession.setStepMode(true);
+            out.println(TerminalRenderer.ANSI_YELLOW + "[DEBUG] Single-step mode armed for next evaluation." + TerminalRenderer.ANSI_RESET);
+            return;
+        }
+
+        long initialPauseCount = debugSession.getPauseCount();
+        debugSession.step();
+        waitForPauseOrCompletion("Stepped to", initialPauseCount);
+    }
+
+    private void handleContinue() {
+        if (!debugSession.isPaused()) {
+            out.println(TerminalRenderer.ANSI_YELLOW + "[DEBUG] Engine is not currently paused at a breakpoint." + TerminalRenderer.ANSI_RESET);
+            return;
+        }
+
+        long initialPauseCount = debugSession.getPauseCount();
+        debugSession.continueExecution();
+        waitForPauseOrCompletion("Hit breakpoint at", initialPauseCount);
+    }
+
+    private void handleInspect(String arg) {
+        boolean showAll = "all".equalsIgnoreCase(arg);
+
+        if (showAll) {
+            List<EvaluationFrame> history = debugSession.getHistory();
+            if (history.isEmpty()) {
+                out.println(TerminalRenderer.ANSI_YELLOW + "[DEBUG] No evaluation frames recorded yet." + TerminalRenderer.ANSI_RESET);
+                return;
+            }
+            out.println(TerminalRenderer.ANSI_BOLD + TerminalRenderer.ANSI_CYAN + "=== Helix Evaluation Frame History (" + history.size() + " frames) ===" + TerminalRenderer.ANSI_RESET);
+            for (EvaluationFrame f : history) {
+                renderSingleFrame(f);
+            }
+            return;
+        }
+
+        EvaluationFrame frame = debugSession.getCurrentFrame();
+        if (frame == null) {
+            List<EvaluationFrame> history = debugSession.getHistory();
+            if (!history.isEmpty()) {
+                frame = history.get(history.size() - 1);
+            }
+        }
+
+        if (frame == null) {
+            out.println(TerminalRenderer.ANSI_YELLOW + "[DEBUG] No active frame or history available to inspect. Run an expression in :debug mode or hit a breakpoint." + TerminalRenderer.ANSI_RESET);
+            return;
+        }
+
+        out.println(TerminalRenderer.ANSI_BOLD + TerminalRenderer.ANSI_CYAN + "=== Helix ASM Frame Stack Inspector ===" + TerminalRenderer.ANSI_RESET);
+        renderSingleFrame(frame);
+    }
+
+    private void renderSingleFrame(EvaluationFrame frame) {
+        String leftType = frame.getLeftValue() != null ? frame.getLeftValue().getClass().getSimpleName() : "null";
+        String rightType = frame.getRightValue() != null ? frame.getRightValue().getClass().getSimpleName() : "null";
+        String outcomeStr = frame.isOutcome() ? (TerminalRenderer.ANSI_GREEN + "true (BRANCH TAKEN)" + TerminalRenderer.ANSI_RESET)
+                : (TerminalRenderer.ANSI_RED + "false (FALLTHROUGH)" + TerminalRenderer.ANSI_RESET);
+
+        out.println(TerminalRenderer.ANSI_BOLD + "+-------------------------------------------------------------------------------+" + TerminalRenderer.ANSI_RESET);
+        out.printf("| Condition Clause Index : %-60s |%n", "[" + frame.getClauseIndex() + "]");
+        out.printf("| AST Expression         : %-60s |%n", frame.getDescription());
+        out.printf("| Operator               : %-60s |%n", frame.getOperator());
+        out.printf("| Left Operand           : %-60s |%n", frame.getLeftValue() + " (" + leftType + ")");
+        out.printf("| Right Operand          : %-60s |%n", frame.getRightValue() + " (" + rightType + ")");
+        out.printf("| Boolean Outcome        : %-70s |%n", outcomeStr);
+        out.println(TerminalRenderer.ANSI_BOLD + "+-------------------------------------------------------------------------------+" + TerminalRenderer.ANSI_RESET);
+        out.println(TerminalRenderer.ANSI_BOLD + "| Local Variables Snapshot (Context at Frame Evaluation)                        |" + TerminalRenderer.ANSI_RESET);
+        out.println(TerminalRenderer.ANSI_BOLD + "+-------------------------------------------------------------------------------+" + TerminalRenderer.ANSI_RESET);
+
+        Map<String, Object> vars = frame.getVariables();
+        if (vars.isEmpty()) {
+            out.println("| (No variables in context)                                                     |");
+        } else {
+            for (Map.Entry<String, Object> e : vars.entrySet()) {
+                String valStr = String.valueOf(e.getValue());
+                String vType = e.getValue() != null ? e.getValue().getClass().getSimpleName() : "null";
+                String entryStr = e.getKey() + " = " + valStr + " (" + vType + ")";
+                if (entryStr.length() > 77) entryStr = entryStr.substring(0, 74) + "...";
+                out.printf("| %-77s |%n", entryStr);
+            }
+        }
+        out.println(TerminalRenderer.ANSI_BOLD + "+-------------------------------------------------------------------------------+" + TerminalRenderer.ANSI_RESET);
+    }
+
+    private void waitForPauseOrCompletion(String actionName, long initialPauseCount) {
+        long deadline = System.currentTimeMillis() + 2000;
+        while (System.currentTimeMillis() < deadline) {
+            if (debugSession.isPaused() && debugSession.getPauseCount() > initialPauseCount) {
+                EvaluationFrame frame = debugSession.getCurrentFrame();
+                if (frame != null) {
+                    printFrameBanner(actionName, frame);
+                }
+                return;
+            }
+            if (activeExecution != null && activeExecution.isDone()) {
+                try {
+                    ExecutionResult res = activeExecution.get();
+                    Object val = res.getResult().orElse(null);
+                    this.lastResult = val;
+                    context.setVariable("_", val);
+                    context.setVariable("$it", val);
+                    String typeName = (val != null) ? val.getClass().getSimpleName() : "null";
+                    double evalMicros = res.getExecutionTimeNanos() / 1000.0;
+                    out.println(TerminalRenderer.ANSI_BOLD + TerminalRenderer.ANSI_GREEN + "=> " + val + TerminalRenderer.ANSI_RESET
+                            + "  \u001B[90m(" + typeName + ") [" + String.format("%.2f", evalMicros) + " µs debug eval]\u001B[0m");
+                } catch (Exception e) {
+                    out.println(TerminalRenderer.ANSI_RED + "[ERROR] Evaluation error: " + e.getMessage() + TerminalRenderer.ANSI_RESET);
+                }
+                return;
+            }
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException ignored) {}
+        }
+        if (debugSession.isPaused() && debugSession.getPauseCount() > initialPauseCount) {
+            EvaluationFrame frame = debugSession.getCurrentFrame();
+            if (frame != null) {
+                printFrameBanner(actionName, frame);
+            }
+        }
+    }
+
+    private void printFrameBanner(String action, EvaluationFrame frame) {
+        out.println(TerminalRenderer.ANSI_BOLD + TerminalRenderer.ANSI_YELLOW + "[DEBUG] " + action + " clause ["
+                + frame.getClauseIndex() + "]: " + TerminalRenderer.ANSI_CYAN + frame.getDescription() + TerminalRenderer.ANSI_RESET);
+        out.println("        Left: " + TerminalRenderer.ANSI_BOLD + frame.getLeftValue() + TerminalRenderer.ANSI_RESET
+                + "  " + frame.getOperator() + "  Right: " + TerminalRenderer.ANSI_BOLD + frame.getRightValue() + TerminalRenderer.ANSI_RESET
+                + "  => Outcome: " + (frame.isOutcome() ? (TerminalRenderer.ANSI_GREEN + "true") : (TerminalRenderer.ANSI_RED + "false"))
+                + TerminalRenderer.ANSI_RESET);
+        out.println("\u001B[90mType :inspect to examine frame stack, :step to advance, :continue to resume.\u001B[0m");
+    }
+
     private void printHelp() {
         out.println("""
         Helix Interactive REPL Commands:
@@ -507,6 +754,11 @@ public class HelixRepl {
           :context / :vars   Display all currently active variables in context
           :load <path>       Load rule from JSON or expression file
           :clear             Clear terminal screen
+          :debug [on|off]    Toggle or set ASM dynamic debug instrumentation mode
+          :break [idx|clear] Set/toggle breakpoint on condition clause, list, or clear
+          :step              Step to next condition clause and record frame state
+          :inspect [all]     Inspect current evaluation frame, operands, and variables
+          :continue / :c     Continue evaluation past breakpoints to completion
           :help              Show this help cheat sheet
           :exit / :quit      Exit REPL session
 
@@ -522,11 +774,28 @@ public class HelixRepl {
         out.flush();
     }
 
+    private synchronized ExecutorService getDebugExecutor() {
+        if (debugExecutor == null || debugExecutor.isShutdown()) {
+            debugExecutor = Executors.newSingleThreadExecutor(r -> {
+                Thread t = new Thread(r, "Helix-Repl-Debug-Worker");
+                t.setDaemon(true);
+                return t;
+            });
+        }
+        return debugExecutor;
+    }
+
     public void close() {
         if (terminal != null) {
             try {
                 terminal.close();
             } catch (Exception ignored) {}
+        }
+        if (debugSession != null) {
+            debugSession.close();
+        }
+        if (debugExecutor != null) {
+            debugExecutor.shutdownNow();
         }
     }
 
@@ -544,5 +813,21 @@ public class HelixRepl {
 
     public Object getLastResult() {
         return lastResult;
+    }
+
+    public DebugSession getDebugSession() {
+        return debugSession;
+    }
+
+    public void setDebugSession(DebugSession debugSession) {
+        this.debugSession = debugSession;
+    }
+
+    public boolean isDebugMode() {
+        return debugMode;
+    }
+
+    public void setDebugMode(boolean debugMode) {
+        this.debugMode = debugMode;
     }
 }

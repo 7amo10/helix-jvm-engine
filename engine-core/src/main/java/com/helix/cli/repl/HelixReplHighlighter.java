@@ -16,7 +16,8 @@ import java.util.regex.Pattern;
 public class HelixReplHighlighter implements Highlighter {
 
     private static final Set<String> COMMANDS = Set.of(
-            ":help", ":eval", ":set", ":context", ":vars", ":ast", ":bytecode", ":perf", ":load", ":clear", ":exit", ":quit"
+            ":help", ":eval", ":set", ":context", ":vars", ":ast", ":bytecode", ":perf",
+            ":load", ":clear", ":exit", ":quit", ":break", ":step", ":inspect", ":continue", ":c", ":debug"
     );
 
     private static final Set<String> BUILTINS = Set.of(
