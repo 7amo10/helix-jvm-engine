@@ -16,7 +16,7 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * Low-level ASM bytecode generator for experimental POC rule compilation.
  *
- * <h2>ASM vs ByteBuddy Comparison & Documentation</h2>
+ * <h2>ASM vs ByteBuddy Comparison &amp; Documentation</h2>
  * <ul>
  *   <li><b>ByteBuddy:</b> High-level, type-safe API for dynamic class creation and method delegation.
  *       Recommended for standard production rules requiring complex method calls, reflection, and safety.</li>
@@ -29,12 +29,27 @@ public class AsmGenerator implements BytecodeGenerator, Opcodes {
     private static final Logger log = LoggerFactory.getLogger(AsmGenerator.class);
     private static final AtomicLong classCounter = new AtomicLong(0);
 
-    @Override
-    public CompiledRule generate(Rule rule, ExpressionNode astRoot) throws BytecodeGenerationException {
+    /**
+     * Generates raw JVM bytecode for the given rule without loading the class into the JVM.
+     *
+     * @param rule rule definition
+     * @param astRoot AST expression tree
+     * @return raw class byte array
+     * @throws BytecodeGenerationException if generation fails
+     */
+    public byte[] generateBytecode(Rule rule, ExpressionNode astRoot) throws BytecodeGenerationException {
         Objects.requireNonNull(rule, "rule cannot be null");
         Objects.requireNonNull(astRoot, "astRoot cannot be null");
-
         String className = "com.helix.compiled.asm.AsmRule_" + sanitizeName(rule.getName()) + "_" + classCounter.incrementAndGet();
+        return generateBytecode(className, rule, astRoot);
+    }
+
+    /**
+     * Generates raw JVM bytecode for the specified class name.
+     */
+    public byte[] generateBytecode(String className, Rule rule, ExpressionNode astRoot) throws BytecodeGenerationException {
+        Objects.requireNonNull(rule, "rule cannot be null");
+        Objects.requireNonNull(astRoot, "astRoot cannot be null");
 
         try {
             AsmClassBuilder classBuilder = new AsmClassBuilder(className);
@@ -80,7 +95,22 @@ public class AsmGenerator implements BytecodeGenerator, Opcodes {
             mv.visitMaxs(5, 8);
             mv.visitEnd();
 
-            byte[] byteCode = classBuilder.toByteArray();
+            return classBuilder.toByteArray();
+        } catch (Exception e) {
+            log.error("Failed to generate ASM bytecode for rule: {}", rule.getName(), e);
+            throw new BytecodeGenerationException("ASM class generation failed for rule '" + rule.getName() + "': " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public CompiledRule generate(Rule rule, ExpressionNode astRoot) throws BytecodeGenerationException {
+        Objects.requireNonNull(rule, "rule cannot be null");
+        Objects.requireNonNull(astRoot, "astRoot cannot be null");
+
+        String className = "com.helix.compiled.asm.AsmRule_" + sanitizeName(rule.getName()) + "_" + classCounter.incrementAndGet();
+
+        try {
+            byte[] byteCode = generateBytecode(className, rule, astRoot);
 
             // Load and instantiate class
             DynamicClassLoader classLoader = new DynamicClassLoader(AsmGenerator.class.getClassLoader());
@@ -88,10 +118,9 @@ public class AsmGenerator implements BytecodeGenerator, Opcodes {
 
             Constructor<?> constructor = clazz.getConstructor(String.class, String.class, ExpressionNode.class);
             return (CompiledRule) constructor.newInstance(rule.getName(), rule.getVersion(), astRoot);
-
         } catch (Exception e) {
-            log.error("Failed to generate ASM bytecode for rule: {}", rule.getName(), e);
-            throw new BytecodeGenerationException("ASM class generation failed for rule '" + rule.getName() + "': " + e.getMessage(), e);
+            log.error("Failed to instantiate ASM rule class: {}", rule.getName(), e);
+            throw new BytecodeGenerationException("ASM class loading failed for rule '" + rule.getName() + "': " + e.getMessage(), e);
         }
     }
 
