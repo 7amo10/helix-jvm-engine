@@ -26,6 +26,7 @@ public class TieredRuleCache implements AutoCloseable {
 
     private final ReferenceManager referenceManager = new ReferenceManager();
     private final CacheStatistics statistics = new CacheStatistics();
+    private final java.util.concurrent.locks.ReentrantLock cleanupLock = new java.util.concurrent.locks.ReentrantLock();
 
     public TieredRuleCache() {
         this(100, 10, TimeUnit.MINUTES);
@@ -136,9 +137,15 @@ public class TieredRuleCache implements AutoCloseable {
     }
 
     private void cleanUpReferences() {
-        referenceManager.processQueue();
-        l2Cache.entrySet().removeIf(e -> e.getValue().get() == null);
-        l3Cache.entrySet().removeIf(e -> e.getValue().get() == null);
+        if (cleanupLock.tryLock()) {
+            try {
+                referenceManager.processQueue();
+                l2Cache.entrySet().removeIf(e -> e.getValue().get() == null);
+                l3Cache.entrySet().removeIf(e -> e.getValue().get() == null);
+            } finally {
+                cleanupLock.unlock();
+            }
+        }
     }
 
     @Override
