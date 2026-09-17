@@ -38,19 +38,23 @@ helix-parent/
 - Exposes `Rule`, `CompiledRule`, `ExecutionContext`, `ExecutionResult`, and `RuleEngine`.
 - Guaranteed backward compatibility for embedding services.
 
-### 2. `engine-core` (Compilation, Execution & Caching)
-- **Parser & AST:** Converts JSON rule representations into structured `ASTNode` hierarchies (`BinaryOpNode`, `LiteralNode`, `VariableNode`).
-- **Optimizers:** Applies constant folding and algebraic simplification passes.
-- **Generators:** Implements `ByteBuddyRuleGenerator` and `AsmRuleGenerator`.
-- **ClassLoaders:** `ClassLoaderManager` handles dynamic class generation and Metaspace safety.
-- **Cache:** `TieredRuleCache` manages 3-tiered JVM reference lifecycles.
-- **Executors:** `SyncExecutor`, `AsyncExecutor`, and `BatchExecutor`.
-- **CLI & TUI:** Picocli command dispatcher and Lanterna ANSI terminal dashboard.
+### 2. `engine-core` (Compilation, Execution, Caching & Tooling)
+- **Native Parser & AST:** Native, zero-dependency recursive-descent lexer and operator-precedence AST parser with compile-time AST optimization passes (`AstBuilder`, `AstOptimizer`).
+- **Optimizers:** Applies constant folding, dead-code elimination, and algebraic simplification passes.
+- **Generators:** Direct JVM bytecode generation via `ByteBuddyRuleGenerator` and raw ASM `AsmRuleGenerator`.
+- **Dynamic Debugging:** Non-intrusive probe injection (`DebugClassVisitor`, `DebugProbe`) and local variable / operand stack frame inspection (`FrameInspector`).
+- **ClassLoaders:** `ClassLoaderManager` handles dynamic class generation and Metaspace safety with hierarchical class unloading.
+- **Cache:** `TieredRuleCache` manages 3-tiered JVM reference lifecycles (L1 Strong, L2 Soft, L3 Weak).
+- **Executors:** `SyncExecutor`, `AsyncExecutor`, `BatchExecutor`, and Java 21 Loom `VirtualThreadRuleExecutor` with `StructuredTaskScope`.
+- **Interactive Tooling:** JLine 3 Terminal REPL (`ReplCommand`) with syntax highlighting, history, multiline editing, and live bytecode disassembly (`:disasm`).
+- **Programmatic Facade:** `HelixEngines` factory providing clean embedding APIs (`DefaultRuleEngine`, `DefaultProfiler`).
 
-### 3. `engine-profiler` (Observability & Telemetry)
-- Tracks HotSpot compilation logs (`-XX:+PrintCompilation`).
-- Evaluates Safepoint Time-To-Safepoint (TTSP) delays.
-- Connects with JDK Flight Recorder (`JfrRecordingManager`).
+### 3. `engine-profiler` (Observability, Telemetry & Flame Graphs)
+- **In-Memory Folded Stack Aggregator:** `FlameGraphAggregator` supporting Brendan Gregg folded format, JFR sample ingestion, and CPU execution time / heap allocation dimensions.
+- **Terminal Flame Graph Renderer:** Unicode ASCII box-drawing flame graph visualizer (`AsciiFlameRenderer`) with full-screen Lanterna TUI integration (`[F] Flame Graph` view).
+- **Export Formats:** Exports interactive vector SVG and standalone HTML flame graphs with search and zoom capabilities.
+- **HotSpot JIT Telemetry:** Tracks JIT compilation events (`-XX:+PrintCompilation`) and tiered compiler transitions (Tier 1-4).
+- **Safepoints & JFR:** Evaluates Safepoint Time-To-Safepoint (TTSP) delays and connects with JDK Flight Recorder (`JfrRecordingManager`).
 
 ### 4. `engine-agent` (Bytecode Instrumentation)
 - Attachable `-javaagent` using `ByteBuddyAgent` and ASM `ClassFileTransformer`.
@@ -59,4 +63,4 @@ helix-parent/
 
 ### 5. `engine-experiments` (Benchmarks & Research)
 - Reproducible JVM behavior experiments: `metaspace`, `jit`, `gc`, `layout`, `safepoint`.
-- JMH microbenchmark suites measuring compilation latency and execution throughput.
+- JMH microbenchmark suites measuring compilation latency, execution throughput, and thread scalability under virtual and platform threads.

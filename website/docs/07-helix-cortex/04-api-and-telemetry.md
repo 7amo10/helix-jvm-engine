@@ -32,6 +32,7 @@ Authorization: Bearer <jwt-token>
 | **Auth** | `POST` | `/api/v1/auth/refresh` | Authenticated | Exchanges a valid token for a refreshed token. |
 | **Rules** | `POST` | `/api/v1/rules/compile` | `ADMIN`, `OPERATOR` | Compiles raw JSON rule syntax into Helix AST and executable bytecode. |
 | **Rules** | `POST` | `/api/v1/rules/execute` | `ADMIN`, `OPERATOR` | Evaluates a compiled rule against input context with sub-ms execution. |
+| **Rules** | `POST` | `/api/v1/rules/execute/batch` | `ADMIN`, `OPERATOR` | Evaluates a rule against an array of contexts concurrently (Virtual Threads / Pool). |
 | **Rules** | `GET` | `/api/v1/rules/sessions` | `ADMIN`, `OPERATOR`, `ANALYST` | Lists all execution sessions (optimized query, single SQL statement). |
 | **Rules** | `GET` | `/api/v1/rules/sessions/{id}` | `ADMIN`, `OPERATOR`, `ANALYST` | Retrieves full execution details and metrics for a single session. |
 | **Rules** | `DELETE` | `/api/v1/rules/sessions/{id}` | `ADMIN` | Deletes a recorded execution session. |
@@ -40,6 +41,8 @@ Authorization: Bearer <jwt-token>
 | **Analysis** | `GET` | `/api/v1/analysis/reports/{id}` | `ADMIN`, `OPERATOR`, `ANALYST` | Retrieves detailed class and method inspection breakdown for a report. |
 | **Telemetry**| `GET` | `/api/v1/telemetry/stream` | `ADMIN`, `OPERATOR`, `ANALYST` | Server-Sent Events (SSE) continuous live telemetry stream (1s interval). |
 | **Telemetry**| `GET` | `/api/v1/telemetry/metrics` | `ADMIN`, `OPERATOR`, `ANALYST` | Instantaneous snapshot of engine memory, CPU, and execution metrics. |
+| **Telemetry**| `GET` | `/api/v1/telemetry/flamegraph` | `ADMIN`, `OPERATOR`, `ANALYST` | Folded stack traces or SVG/HTML flame graph (`?format=folded\|html\|svg`). |
+| **Telemetry**| `GET` | `/api/v1/telemetry/flamegraph/stream` | `ADMIN`, `OPERATOR`, `ANALYST` | Continuous live SSE stream broadcasting updated folded stack traces. |
 
 ---
 
@@ -88,20 +91,80 @@ curl -s -X POST http://localhost:8080/helix-cortex/api/v1/rules/compile \
 }
 ```
 
-### 3. Stream Real-Time Telemetry (SSE)
+### 3. Concurrent Batch Evaluation (Virtual Threads)
 
-Clients can subscribe to live performance events using any SSE-compatible client or `curl`:
+Execute thousands of contextual items concurrently across lightweight virtual threads:
 
 ```bash
+curl -s -X POST http://localhost:8080/helix-cortex/api/v1/rules/execute/batch \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ruleId": "fraud-velocity-check",
+    "contexts": [
+      {"transactionCount": 12, "amount": 6000},
+      {"transactionCount": 2, "amount": 100},
+      {"transactionCount": 15, "amount": 12000}
+    ]
+  }'
+```
+
+**Response (`200 OK`):**
+```json
+{
+  "ruleId": "fraud-velocity-check",
+  "totalEvaluated": 3,
+  "durationMs": "0.342",
+  "executorType": "VIRTUAL_THREADS",
+  "results": [
+    {"index": 0, "result": true},
+    {"index": 1, "result": false},
+    {"index": 2, "result": true}
+  ]
+}
+```
+
+### 4. Fetch Folded Stack Flame Graphs
+
+Retrieve folded stack traces or formatted SVG/HTML for enterprise profiling:
+
+```bash
+# Get raw Brendan Gregg folded stack traces
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8080/helix-cortex/api/v1/telemetry/flamegraph?format=folded&dimension=cpu"
+
+# Get downloadable vector SVG
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:8080/helix-cortex/api/v1/telemetry/flamegraph?format=svg" -o flamegraph.svg
+```
+
+### 5. Stream Real-Time Telemetry & Flame Graphs (SSE)
+
+Clients can subscribe to live performance events or live flame graph updates:
+
+```bash
+# Telemetry Stream
 curl -N -H "Authorization: Bearer $TOKEN" \
   http://localhost:8080/helix-cortex/api/v1/telemetry/stream
+
+# Live Flame Graph Stream
+curl -N -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8080/helix-cortex/api/v1/telemetry/flamegraph/stream
 ```
 
-**Event Stream Output (Broadcast every 1,000 ms):**
+**Flame Graph Event Stream Output:**
 ```text
-event: telemetry
-data: {"timestamp":1726338420000,"cpuUsage":12.4,"heapUsedMb":184.2,"heapMaxMb":1024.0,"activeSessions":3,"cacheHits":1420,"cacheMisses":12}
-
-event: telemetry
-data: {"timestamp":1726338421000,"cpuUsage":11.8,"heapUsedMb":185.1,"heapMaxMb":1024.0,"activeSessions":2,"cacheHits":1445,"cacheMisses":12}
+event: flamegraph
+data: {"timestamp":1726338420000,"dimension":"CPU","folded":"com.helix.cli.Main;com.helix.core.VirtualThreadRuleExecutor.executeBatch 4200\ncom.helix.cli.Main;com.helix.core.RuleCompiler.compile 890"}
 ```
+
+---
+
+## Concurrency & Telemetry Configuration Reference
+
+Configure these settings in `microprofile-config.properties` or container environment variables:
+
+| Property | Environment Variable | Default | Description |
+|---|---|---|---|
+| `helix.cortex.executor.type` | `CORTEX_EXECUTOR_TYPE` | `VIRTUAL_THREADS` | Executor strategy for batch rule evaluation (`VIRTUAL_THREADS` or `PLATFORM_POOL`). |
+| `helix.cortex.flamegraph.dimension` | `CORTEX_FLAMEGRAPH_DIMENSION` | `cpu` | Telemetry stack trace profiling dimension (`cpu` or `alloc`). |

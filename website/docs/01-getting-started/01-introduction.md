@@ -24,7 +24,7 @@ flowchart TD
     Req["Business Rule Changes"]
     
     Req --> OptA["Option A: Hardcoded Java"]
-    Req --> OptB["Option B: Dynamic Interpreters (MVEL, Nashorn)"]
+    Req --> OptB["Option B: Dynamic Interpreters & Scripting (Groovy, Rhino)"]
     Req --> Helix["Helix JVM Engine (Bytecode Generation)"]
     
     OptA --> A_Res["Native Execution Speed<br/>(Requires Rebuild, Redeploy & Downtime)"]
@@ -36,7 +36,7 @@ flowchart TD
 
 ## The Helix Solution: On-the-Fly Bytecode Generation
 
-Helix bridges this gap by accepting simple, declarative **JSON business rules** and compiling them **directly into raw JVM bytecode in-memory** using either **ByteBuddy** or **ASM**.
+Helix bridges this gap by parsing declarative **JSON business rules** with its zero-dependency recursive-descent lexer and operator-precedence AST parser, and compiling them **directly into raw JVM bytecode in-memory** using either **ByteBuddy** or **ASM**.
 
 ```mermaid
 flowchart TD
@@ -60,8 +60,10 @@ flowchart TD
 
 ### Key Architectural Pillars
 
-1. **Zero Interpretation Overhead:** Once compiled, evaluation executes at pure native Java speed (less than **8 nanoseconds** per evaluation in synchronous mode).
+1. **Zero Interpretation Overhead:** Native recursive-descent lexer and AST parser compile directly to raw JVM bytecode; once compiled, evaluation executes at pure native Java speed (less than **8 nanoseconds** per evaluation in synchronous mode).
 2. **Multi-Tiered Reference Caching:** 3-level caching system (`L1 Strong`, `L2 Soft`, `L3 Weak`) ensuring hot rules remain instant while protecting the JVM from `OutOfMemoryError` heap exhaustion.
 3. **Metaspace Stability & Class Unloading:** Custom hierarchical ClassLoaders designed to allow unneeded dynamic rule classes to be safely garbage-collected.
-4. **Mechanical Sympathy & Deep Observability:** Built-in JIT compilation monitors, GC and Safepoint Time-To-Safepoint (TTSP) analyzers, and Java Object Layout (JOL) inspectors.
-5. **Multiple Execution Paradigms:** High-performance single-thread evaluation (`SyncExecutor`), non-blocking async futures (`AsyncExecutor`), and parallel chunk spliterators (`BatchExecutor`).
+4. **Structured Concurrency & Virtual Threads:** Native Project Loom integration (`VirtualThreadRuleExecutor`) leveraging Java 21 `StructuredTaskScope` for massive thread fan-out and non-blocking asynchronous execution.
+5. **In-Terminal Observability & Flame Graphs:** In-memory folded stack trace aggregation (`FlameGraphAggregator`) supporting Brendan Gregg format, JFR sample parsing, CPU & Heap dimensions, and interactive box-drawing Unicode ASCII flame graphs in the Lanterna TUI dashboard.
+6. **Dynamic Debugging & REPL:** Non-intrusive ASM bytecode probe injection (`DebugClassVisitor`, `FrameInspector`) and an interactive JLine 3 terminal REPL with syntax highlighting and live bytecode disassembly (`:disasm`).
+7. **Multiple Execution Paradigms:** High-performance single-thread evaluation (`SyncExecutor`), non-blocking async futures (`AsyncExecutor`), parallel chunk spliterators (`BatchExecutor`), and Loom virtual-thread batch execution (`VirtualThreadRuleExecutor`).
