@@ -44,6 +44,22 @@ public class HelixApplication implements Runnable {
                 """);
     }
 
+    /**
+     * @deprecated Use {@link com.helix.core.HelixEngines#createDefault()} instead.
+     */
+    @Deprecated(since = "1.0.0")
+    public static com.helix.api.RuleEngine createEngine() {
+        return com.helix.core.HelixEngines.createDefault();
+    }
+
+    /**
+     * @deprecated Use {@link com.helix.core.HelixEngines#createProfiler()} instead.
+     */
+    @Deprecated(since = "1.0.0")
+    public static com.helix.api.profiler.Profiler createProfiler(com.helix.api.RuleEngine engine) {
+        return com.helix.core.HelixEngines.createProfiler();
+    }
+
     public static void main(String[] args) {
         int exitCode = new CommandLine(new HelixApplication()).execute(args);
         System.exit(exitCode);
