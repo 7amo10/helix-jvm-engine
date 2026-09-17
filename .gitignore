@@ -30,6 +30,8 @@ logs/
 *.jfr
 *.hprof
 flamegraph*.html
+flamegraph*.svg
+helix-flamegraph*
 hotspot*.log
 gc*.log
 safepoint*.log

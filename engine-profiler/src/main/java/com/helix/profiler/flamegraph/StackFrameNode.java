@@ -41,6 +41,10 @@ public class StackFrameNode {
         return name;
     }
 
+    public String getFrameName() {
+        return name;
+    }
+
     public int getDepth() {
         return depth;
     }

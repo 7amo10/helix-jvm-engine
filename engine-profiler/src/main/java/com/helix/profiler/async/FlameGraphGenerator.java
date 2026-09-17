@@ -85,7 +85,22 @@ public class FlameGraphGenerator {
             Files.createDirectories(outputFile.getParent());
         }
         Files.writeString(outputFile, html);
-        log.info("Generated Flame Graph HTML at: {}", outputFile);
+        log.debug("Generated Flame Graph HTML at: {}", outputFile);
+    }
+
+    /**
+     * Generates an HTML flame graph file from collapsed input string.
+     */
+    public void generateHtmlFlameGraph(String collapsedData, Path outputFile, String title) throws IOException {
+        Objects.requireNonNull(collapsedData, "collapsedData must not be null");
+        Objects.requireNonNull(outputFile, "outputFile must not be null");
+
+        String html = generateHtmlFlameGraph(collapsedData, title);
+        if (outputFile.getParent() != null) {
+            Files.createDirectories(outputFile.getParent());
+        }
+        Files.writeString(outputFile, html);
+        log.debug("Generated Flame Graph HTML at: {}", outputFile);
     }
 
     /**
