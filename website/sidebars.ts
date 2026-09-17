@@ -37,6 +37,8 @@ const sidebars: SidebarsConfig = {
         'core-guides/ast-optimizations',
         'core-guides/executors',
         'core-guides/classloader-isolation',
+        'core-guides/interactive-repl-and-debugging',
+        'core-guides/flamegraph-profiling',
       ],
     },
     {

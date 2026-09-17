@@ -37,8 +37,8 @@ function HeroHeader() {
             <div className={styles.statLabel}>Tier 1 Cache Hit</div>
           </div>
           <div className={styles.statItem}>
-            <div className={styles.statValue}>450k+</div>
-            <div className={styles.statLabel}>Ops/Sec Batch Throughput</div>
+            <div className={styles.statValue}>950k+</div>
+            <div className={styles.statLabel}>Virtual Threads Ops/Sec</div>
           </div>
           <div className={styles.statItem}>
             <div className={styles.statValue}>0 B</div>
@@ -52,10 +52,34 @@ function HeroHeader() {
 
 const FeatureList = [
   {
-    title: 'On-the-Fly Bytecode Compilation',
+    title: 'Native AST & Bytecode Compilation',
     description: (
       <>
-        Compiles declarative JSON business rules directly into raw JVM bytecode in-memory via ByteBuddy or ASM. Zero interpretation overhead.
+        Zero-dependency recursive-descent lexer and operator-precedence AST parser compiling JSON rules directly into raw JVM bytecode in-memory via ByteBuddy or ASM.
+      </>
+    ),
+  },
+  {
+    title: 'Loom Virtual Threads & Structured Concurrency',
+    description: (
+      <>
+        Java 21 VirtualThreadRuleExecutor leveraging StructuredTaskScope for massive non-blocking concurrency, fast-fail error propagation, and 950,000+ ops/sec throughput.
+      </>
+    ),
+  },
+  {
+    title: 'In-Terminal Flame Graphs & Profiler',
+    description: (
+      <>
+        In-memory folded stack aggregator (Brendan Gregg format) with real-time Unicode ASCII box-drawing flame graphs in the Lanterna TUI, plus SVG and HTML exports.
+      </>
+    ),
+  },
+  {
+    title: 'Interactive REPL & Bytecode Disassembler',
+    description: (
+      <>
+        JLine 3 terminal shell for rapid ad-hoc rule authoring, live AST inspection, and raw bytecode opcode disassembly (:disasm) alongside ASM dynamic debug probe injection.
       </>
     ),
   },
@@ -72,30 +96,6 @@ const FeatureList = [
     description: (
       <>
         Isolated and hierarchical ClassLoader topologies allowing seamless dynamic rule hot-reloading with guaranteed Metaspace GC unloading.
-      </>
-    ),
-  },
-  {
-    title: 'Deep JVM Observability & Experiments',
-    description: (
-      <>
-        Built-in research suites measuring HotSpot JIT compilation tiers, GC reference pressure, Safepoint TTSP delays, and JOL memory headers.
-      </>
-    ),
-  },
-  {
-    title: 'Interactive TUI & Automation CLI',
-    description: (
-      <>
-        Full-featured Picocli command-line interface paired with a Lanterna terminal UI dashboard displaying live CPU, GC, and cache metrics.
-      </>
-    ),
-  },
-  {
-    title: 'Continuous JMH Benchmarking Gates',
-    description: (
-      <>
-        Multi-OS GitHub Actions CI/CD workflows enforcing automated JMH throughput regression gates on every pull request.
       </>
     ),
   },

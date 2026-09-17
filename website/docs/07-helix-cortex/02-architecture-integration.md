@@ -35,9 +35,9 @@ When a client initiates a request against Helix Cortex, the system executes thro
 - Helix Engine evaluates the AST, checks the tiered cache (L1 fast lookup -> L2 Caffeine -> L3 persistent), and invokes ByteBuddy/ASM generators if compilation is required.
 - The compiled bytecode class is loaded into an isolated child classloader to ensure strict tenant and memory isolation.
 
-### 3. Execution & Context Evaluation
-- When executing via `POST /api/v1/rules/execute`, `RuleExecutionService` evaluates the compiled rule against a provided JSON context (e.g., transaction amount, user credit history, location).
-- The evaluation runs in sub-millisecond time on the JVM stack.
+### 3. Execution & Context Evaluation (Single & Batch Fan-Out)
+- **Single Evaluation:** When executing via `POST /api/v1/rules/execute`, `RuleExecutionService` evaluates the compiled rule against a provided JSON context (e.g., transaction amount, user credit history, location) in sub-microsecond time on the JVM stack.
+- **Batch Fan-Out:** When executing via `POST /api/v1/rules/execute/batch`, `RuleExecutionService` leverages the configured executor (`helix.cortex.executor.type=VIRTUAL_THREADS` or `PLATFORM_POOL`) to fan out rule evaluation across lightweight virtual threads or an optimized platform thread pool, assembling array results concurrently with structured error handling.
 - The result, execution duration in nanoseconds, and pass/fail criteria are assembled into a response DTO.
 
 ### 4. Optimized Persistence & Auditing
@@ -45,6 +45,7 @@ When a client initiates a request against Helix Cortex, the system executes thro
 - To prevent N+1 query overhead in high-throughput listing endpoints (`GET /api/v1/rules/sessions`), queries utilize JPQL `LEFT JOIN FETCH s.metrics` and JPA EntityGraph hints to fetch sessions and their associated metrics in a single database round-trip.
 - HikariCP manages connection pooling with tuned timeouts (16 max connections, 3-second connection timeout), guaranteeing zero connection exhaustion under concurrent spikes.
 
-### 5. Continuous Telemetry & Streaming
+### 5. Continuous Telemetry & Flame Graph Streaming
 - Throughout engine execution, the background `TelemetryControl` service samples JVM and engine metrics (CPU utilization, heap memory usage, active rule sessions, cache hit ratios).
 - Every 1 second, the `SseBroadcaster` streams an SSE event to all connected dashboard consumers via `GET /api/v1/telemetry/stream`.
+- **Flame Graph Telemetry:** Real-time call stack samples are aggregated in-memory via `FlameGraphAggregator` and exposed via REST (`GET /api/v1/telemetry/flamegraph?format=folded|html|svg`) and live SSE streaming (`GET /api/v1/telemetry/flamegraph/stream`), allowing enterprise observability dashboards to visualize CPU hotspots and allocation spikes live.
