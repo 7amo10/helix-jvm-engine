@@ -62,6 +62,10 @@ public class FlameGraphAggregator implements ProfileEventListener, AutoCloseable
         this.activeMetric = Objects.requireNonNull(metricType, "metricType cannot be null");
     }
 
+    public void setActiveMetric(MetricType metricType) {
+        setMetric(metricType);
+    }
+
     /**
      * Gets the currently active metric dimension.
      */

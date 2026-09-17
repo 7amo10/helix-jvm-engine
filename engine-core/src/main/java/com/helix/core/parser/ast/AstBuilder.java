@@ -44,7 +44,7 @@ public class AstBuilder {
     /**
      * Parses an expression string into an {@link ExpressionNode}.
      *
-     * @param expression raw string expression (e.g., "x > 10 && y.equals(\"test\")")
+     * @param expression raw string expression (e.g., "x &gt; 10 &amp;&amp; y.equals(\"test\")")
      * @return root AST node
      * @throws ParseException if syntax or tokenization fails
      */

@@ -1,6 +1,7 @@
 package com.helix.cli;
 
 import com.helix.cli.output.OutputFormatter;
+import com.helix.cli.ui.HelixDashboard;
 import com.helix.cli.ui.TerminalRenderer;
 import com.helix.cli.ui.TuiDashboard;
 import picocli.CommandLine.Command;
@@ -33,7 +34,7 @@ public class ProfileCommand implements CliCommand {
         try {
             if (dashboard) {
                 TerminalRenderer.renderInfo("Launching interactive Lanterna TUI Dashboard...");
-                TuiDashboard tui = new TuiDashboard();
+                HelixDashboard tui = new HelixDashboard();
                 tui.start();
                 return 0;
             }
