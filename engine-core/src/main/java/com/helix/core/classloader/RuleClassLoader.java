@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Custom URLClassLoader for dynamically defining and executing compiled rule bytecode.
@@ -15,6 +16,7 @@ public class RuleClassLoader extends URLClassLoader implements AutoCloseable {
     private final String loaderId;
     private final Map<String, Class<?>> loadedClasses = new ConcurrentHashMap<>();
     private final ClassLoaderMetrics metrics;
+    private final ReentrantLock lock = new ReentrantLock();
     private volatile boolean closed = false;
 
     public RuleClassLoader(String loaderId, ClassLoader parent) {
@@ -40,24 +42,29 @@ public class RuleClassLoader extends URLClassLoader implements AutoCloseable {
      * @return loaded Class object
      * @throws ClassLoadingException if defining class fails or loader is closed
      */
-    public synchronized Class<?> defineRule(String className, byte[] byteCode) throws ClassLoadingException {
-        if (closed) {
-            throw new ClassLoadingException("Cannot define rule class '" + className + "' on closed RuleClassLoader: " + loaderId);
-        }
-        Objects.requireNonNull(className, "className cannot be null");
-        Objects.requireNonNull(byteCode, "byteCode cannot be null");
-
-        if (loadedClasses.containsKey(className)) {
-            return loadedClasses.get(className);
-        }
-
+    public Class<?> defineRule(String className, byte[] byteCode) throws ClassLoadingException {
+        lock.lock();
         try {
-            Class<?> clazz = defineClass(className, byteCode, 0, byteCode.length);
-            loadedClasses.put(className, clazz);
-            metrics.incrementClassesLoaded();
-            return clazz;
-        } catch (Throwable t) {
-            throw new ClassLoadingException("Failed to define class '" + className + "' in loader: " + loaderId, t);
+            if (closed) {
+                throw new ClassLoadingException("Cannot define rule class '" + className + "' on closed RuleClassLoader: " + loaderId);
+            }
+            Objects.requireNonNull(className, "className cannot be null");
+            Objects.requireNonNull(byteCode, "byteCode cannot be null");
+
+            if (loadedClasses.containsKey(className)) {
+                return loadedClasses.get(className);
+            }
+
+            try {
+                Class<?> clazz = defineClass(className, byteCode, 0, byteCode.length);
+                loadedClasses.put(className, clazz);
+                metrics.incrementClassesLoaded();
+                return clazz;
+            } catch (Throwable t) {
+                throw new ClassLoadingException("Failed to define class '" + className + "' in loader: " + loaderId, t);
+            }
+        } finally {
+            lock.unlock();
         }
     }
 
@@ -76,7 +83,8 @@ public class RuleClassLoader extends URLClassLoader implements AutoCloseable {
     @Override
     public void close() {
         if (!closed) {
-            synchronized (this) {
+            lock.lock();
+            try {
                 if (!closed) {
                     try {
                         super.close();
@@ -86,6 +94,8 @@ public class RuleClassLoader extends URLClassLoader implements AutoCloseable {
                     closed = true;
                     metrics.incrementClosedLoaders();
                 }
+            } finally {
+                lock.unlock();
             }
         }
     }

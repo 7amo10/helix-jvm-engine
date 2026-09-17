@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 public class CacheBenchmark {
 
     @Param({"100", "1000"})
-    private int cacheCapacity;
+    private int cacheCapacity = 100;
 
     private TieredRuleCache cache;
     private CacheKey existingKey;

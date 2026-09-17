@@ -8,17 +8,17 @@ on:
 
 jobs:
   build-and-test:
-    name: Build, Unit & Integration Tests (JDK 17)
+    name: Build, Unit & Integration Tests (JDK 21)
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: '21'
           distribution: 'temurin'
           cache: maven
 

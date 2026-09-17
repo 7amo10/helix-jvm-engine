@@ -20,6 +20,8 @@ class HelixApplicationTest {
     @DisplayName("1. Verify Main Helix Application Help Menu")
     void testHelixApplicationMainHelp() {
         CommandLine cmd = new CommandLine(new HelixApplication());
+        cmd.setOut(new java.io.PrintWriter(new ByteArrayOutputStream()));
+        cmd.setErr(new java.io.PrintWriter(new ByteArrayOutputStream()));
         int exitCode = cmd.execute("--help");
         assertEquals(0, exitCode);
     }
@@ -28,6 +30,8 @@ class HelixApplicationTest {
     @DisplayName("2. Verify Experiment Command Subcommand")
     void testExperimentCommand() {
         CommandLine cmd = new CommandLine(new HelixApplication());
+        cmd.setOut(new java.io.PrintWriter(new ByteArrayOutputStream()));
+        cmd.setErr(new java.io.PrintWriter(new ByteArrayOutputStream()));
         int exitCode = cmd.execute("experiment", "--name", "jit", "--output", "json");
         assertEquals(0, exitCode);
     }

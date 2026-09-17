@@ -30,6 +30,8 @@ logs/
 *.jfr
 *.hprof
 flamegraph*.html
+flamegraph*.svg
+helix-flamegraph*
 hotspot*.log
 gc*.log
 safepoint*.log
@@ -74,6 +76,7 @@ website/node_modules/
 website/.docusaurus/
 website/build/
 website/static/api/
+website/package-lock.json
 *.cast
 
 

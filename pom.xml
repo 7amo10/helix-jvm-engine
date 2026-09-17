@@ -37,16 +37,16 @@
 
     <modules>
         <module>engine-api</module>
-        <module>engine-core</module>
         <module>engine-profiler</module>
+        <module>engine-core</module>
         <module>engine-agent</module>
         <module>engine-experiments</module>
     </modules>
 
     <properties>
-        <java.version>17</java.version>
-        <maven.compiler.source>17</maven.compiler.source>
-        <maven.compiler.target>17</maven.compiler.target>
+        <java.version>21</java.version>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
@@ -62,6 +62,7 @@
         <jol.version>0.17</jol.version>
         <picocli.version>4.7.5</picocli.version>
         <lanterna.version>3.1.1</lanterna.version>
+        <jline.version>3.25.1</jline.version>
 
         <!-- Maven Plugin Versions -->
         <maven.compiler.plugin.version>3.11.0</maven.compiler.plugin.version>
@@ -88,6 +89,11 @@
                 <artifactId>lanterna</artifactId>
                 <version>${lanterna.version}</version>
             </dependency>
+            <dependency>
+                <groupId>org.jline</groupId>
+                <artifactId>jline</artifactId>
+                <version>${jline.version}</version>
+            </dependency>
 
             <!-- ByteBuddy -->
             <dependency>
@@ -110,6 +116,11 @@
             <dependency>
                 <groupId>org.ow2.asm</groupId>
                 <artifactId>asm-commons</artifactId>
+                <version>${asm.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.ow2.asm</groupId>
+                <artifactId>asm-util</artifactId>
                 <version>${asm.version}</version>
             </dependency>
 
@@ -180,6 +191,9 @@
                         <source>${java.version}</source>
                         <target>${java.version}</target>
                         <encoding>${project.build.sourceEncoding}</encoding>
+                        <compilerArgs>
+                            <arg>--enable-preview</arg>
+                        </compilerArgs>
                     </configuration>
                 </plugin>
 
@@ -188,6 +202,9 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>${maven.surefire.plugin.version}</version>
+                    <configuration>
+                        <argLine>--enable-preview -Djdk.tracePinnedThreads=full</argLine>
+                    </configuration>
                 </plugin>
 
                 <!-- Failsafe Plugin for Integration Testing -->
@@ -195,6 +212,9 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-failsafe-plugin</artifactId>
                     <version>${maven.failsafe.plugin.version}</version>
+                    <configuration>
+                        <argLine>--enable-preview</argLine>
+                    </configuration>
                     <executions>
                         <execution>
                             <goals>
@@ -249,6 +269,9 @@
                         <encoding>${project.build.sourceEncoding}</encoding>
                         <doclint>none</doclint>
                         <quiet>true</quiet>
+                        <additionalOptions>
+                            <additionalOption>--enable-preview</additionalOption>
+                        </additionalOptions>
                     </configuration>
                 </plugin>
                 <!-- Source Plugin for Attaching Sources -->

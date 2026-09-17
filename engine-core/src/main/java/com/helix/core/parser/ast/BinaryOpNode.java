@@ -12,6 +12,7 @@ public class BinaryOpNode implements ExpressionNode {
         SUBTRACT("-"),
         MULTIPLY("*"),
         DIVIDE("/"),
+        MODULO("%"),
         GREATER_THAN(">"),
         GREATER_EQUAL(">="),
         LESS_THAN("<"),
