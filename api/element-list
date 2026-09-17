@@ -8,11 +8,13 @@ com.helix.api.agent
 com.helix.api.profiler
 com.helix.cli
 com.helix.cli.output
+com.helix.cli.repl
 com.helix.cli.ui
 com.helix.core
 com.helix.core.bytecode
 com.helix.core.cache
 com.helix.core.classloader
+com.helix.core.debug
 com.helix.core.events
 com.helix.core.executor
 com.helix.core.parser
@@ -26,6 +28,8 @@ com.helix.experiments.layout
 com.helix.experiments.metaspace
 com.helix.experiments.safepoint
 com.helix.profiler.async
+com.helix.profiler.flamegraph
+com.helix.profiler.flamegraph.ui
 com.helix.profiler.gc
 com.helix.profiler.health
 com.helix.profiler.interactive
