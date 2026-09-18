@@ -145,7 +145,6 @@ public class L4RedisRuleCache implements DistributedRuleCache {
 
     private Optional<byte[]> waitForBytecode(Jedis jedis, byte[] keyBytes, long maxWaitMs) {
         long start = System.currentTimeMillis();
-        byte[] lockKeyBytes = (new String(keyBytes, StandardCharsets.UTF_8) + ":lock").getBytes(StandardCharsets.UTF_8);
 
         while (System.currentTimeMillis() - start < maxWaitMs) {
             try {
@@ -159,11 +158,6 @@ public class L4RedisRuleCache implements DistributedRuleCache {
             if (payload != null) {
                 hitCount.incrementAndGet();
                 return extractBytecode(payload);
-            }
-
-            // If lock key was deleted and no bytecode exists, compilation was aborted
-            if (!jedis.exists(lockKeyBytes)) {
-                break;
             }
         }
 
