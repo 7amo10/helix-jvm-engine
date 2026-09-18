@@ -64,6 +64,7 @@
         <lanterna.version>3.1.1</lanterna.version>
         <jline.version>3.25.1</jline.version>
         <jedis.version>5.1.2</jedis.version>
+        <disruptor.version>3.4.4</disruptor.version>
 
         <!-- Maven Plugin Versions -->
         <maven.compiler.plugin.version>3.11.0</maven.compiler.plugin.version>
@@ -135,6 +136,11 @@
                 <groupId>redis.clients</groupId>
                 <artifactId>jedis</artifactId>
                 <version>${jedis.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.lmax</groupId>
+                <artifactId>disruptor</artifactId>
+                <version>${disruptor.version}</version>
             </dependency>
 
             <!-- JSON Processing -->
