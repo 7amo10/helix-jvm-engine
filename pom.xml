@@ -63,6 +63,7 @@
         <picocli.version>4.7.5</picocli.version>
         <lanterna.version>3.1.1</lanterna.version>
         <jline.version>3.25.1</jline.version>
+        <jedis.version>5.1.2</jedis.version>
 
         <!-- Maven Plugin Versions -->
         <maven.compiler.plugin.version>3.11.0</maven.compiler.plugin.version>
@@ -129,6 +130,11 @@
                 <groupId>com.github.ben-manes.caffeine</groupId>
                 <artifactId>caffeine</artifactId>
                 <version>${caffeine.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>redis.clients</groupId>
+                <artifactId>jedis</artifactId>
+                <version>${jedis.version}</version>
             </dependency>
 
             <!-- JSON Processing -->
