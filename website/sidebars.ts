@@ -39,6 +39,8 @@ const sidebars: SidebarsConfig = {
         'core-guides/classloader-isolation',
         'core-guides/interactive-repl-and-debugging',
         'core-guides/flamegraph-profiling',
+        'core-guides/redis-l4-cache',
+        'core-guides/distributed-streaming',
       ],
     },
     {

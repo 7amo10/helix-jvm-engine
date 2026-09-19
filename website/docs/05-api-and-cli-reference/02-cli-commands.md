@@ -99,3 +99,53 @@ Runs JVM behavior experiments.
 ./scripts/start-helix.sh experiment --name=<name> [--output=<format>]
 ```
 - `--name`: `jit`, `metaspace`, `gc`, `safepoint`, `layout`, `all`.
+
+---
+
+## 6. `stream`
+
+Evaluates streaming event streams via local Disruptor ring buffer or distributed Kafka topics.
+
+```bash
+# Disruptor Ring Buffer Mode
+./scripts/start-helix.sh stream --mode=disruptor --rule=<ruleFile> --events=<eventsFile> [--buffer-size=65536] [--threads=4]
+
+# Clustered Kafka Mode
+./scripts/start-helix.sh stream --mode=kafka --rule=<ruleFile> --bootstrap-servers=<servers> --topic=<inputTopic> --output-topic=<outputTopic> --group-id=<groupId>
+```
+
+### Options
+- `-m, --mode=<mode>`: Streaming engine mode: `disruptor` (intra-process ring buffer) or `kafka` (clustered partitioned streaming). Default: `disruptor`.
+- `-r, --rule=<ruleFile>` *(Required)*: Path to JSON rule specification.
+- `-e, --events=<eventsFile>`: Path to JSON array file of event contexts (Disruptor mode).
+- `-b, --bootstrap-servers=<servers>`: Kafka broker bootstrap servers (Kafka mode).
+- `-t, --topic=<topic>`: Kafka input topic to consume events from.
+- `--output-topic=<topic>`: Kafka destination topic for evaluated rule results.
+- `-g, --group-id=<groupId>`: Kafka consumer group identifier. Default: `helix-stream-group`.
+- `--buffer-size=<size>`: Disruptor ring buffer slot capacity (power of 2). Default: `65536`.
+- `--threads=<n>`: Concurrency worker threads. Default: available processors.
+
+---
+
+## 7. `cache`
+
+Manages and inspects the L4 out-of-process distributed Redis cache tier.
+
+```bash
+./scripts/start-helix.sh cache <subcommand> [options]
+```
+
+### Subcommands
+- `status`: Connects to Redis and prints connection status, memory utilization, and active cache key metrics.
+- `get --rule=<name>`: Retrieves and inspects serialized bytecode metadata for a cached rule.
+- `invalidate --rule=<name> [--version=<version>]`: Invalidates a cached rule across the cluster via Redis Pub/Sub invalidation broadcast.
+- `clear`: Purges all cached Helix rule bytecode from Redis.
+
+### Options
+- `-H, --host=<host>`: Redis server hostname. Default: `localhost` (or `REDIS_HOST` env var).
+- `-p, --port=<port>`: Redis server port. Default: `6379` (or `REDIS_PORT` env var).
+- `-a, --auth=<password>`: Redis authentication password (or `REDIS_PASSWORD` env var).
+- `-r, --rule=<ruleName>`: Name of rule to inspect or invalidate.
+- `-v, --version=<version>`: Optional version tag of rule to invalidate.
+- `-c, --channel=<channel>`: Redis Pub/Sub invalidation channel. Default: `helix:cache:invalidation`.
+
