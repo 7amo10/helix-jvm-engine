@@ -29,6 +29,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
 /**
@@ -60,6 +61,7 @@ public class KafkaRuleStreamConsumer implements AutoCloseable {
 
     private final AtomicLong totalPolled = new AtomicLong(0);
     private final AtomicLong totalCompleted = new AtomicLong(0);
+    private final AtomicReference<Set<String>> pendingSubscriptions = new AtomicReference<>();
 
     public KafkaRuleStreamConsumer(KafkaStreamConfig config, RecordEvaluator evaluator) {
         this(config, new KafkaConsumer<>(config.toConsumerProperties()), true, evaluator);
@@ -96,13 +98,24 @@ public class KafkaRuleStreamConsumer implements AutoCloseable {
     public void subscribe(Collection<String> topics) {
         Objects.requireNonNull(topics, "topics cannot be null");
         Set<String> newTopics = new HashSet<>(topics);
-        consumer.subscribe(newTopics, new PartitionRebalanceHandler());
+        if (!running.get()) {
+            consumer.subscribe(newTopics, new PartitionRebalanceHandler());
+        } else {
+            pendingSubscriptions.set(newTopics);
+            consumer.wakeup();
+        }
     }
 
     private void runPollLoop() {
         try {
             while (running.get()) {
                 try {
+                    Set<String> newSubs = pendingSubscriptions.getAndSet(null);
+                    if (newSubs != null) {
+                        consumer.subscribe(newSubs, new PartitionRebalanceHandler());
+                        log.info("Kafka consumer subscribed to topics: {}", newSubs);
+                    }
+
                     applyBackpressureState();
 
                     ConsumerRecords<String, byte[]> records = consumer.poll(config.getPollTimeout());

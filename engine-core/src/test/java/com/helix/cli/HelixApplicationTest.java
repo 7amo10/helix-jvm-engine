@@ -57,4 +57,28 @@ class HelixApplicationTest {
         assertTrue(csvOutput.contains("Key,Value"));
         assertTrue(csvOutput.contains("\"status\",\"SUCCESS\""));
     }
+
+    @Test
+    @DisplayName("4. Verify Stream Subcommand Registration")
+    void testStreamSubcommandHelp() {
+        CommandLine cmd = new CommandLine(new HelixApplication());
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        cmd.setOut(new java.io.PrintWriter(out));
+        cmd.setErr(new java.io.PrintWriter(new ByteArrayOutputStream()));
+        int exitCode = cmd.execute("stream", "--help");
+        assertEquals(0, exitCode);
+        assertTrue(out.toString().contains("stream"));
+    }
+
+    @Test
+    @DisplayName("5. Verify Cache Subcommand Registration")
+    void testCacheSubcommandHelp() {
+        CommandLine cmd = new CommandLine(new HelixApplication());
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        cmd.setOut(new java.io.PrintWriter(out));
+        cmd.setErr(new java.io.PrintWriter(new ByteArrayOutputStream()));
+        int exitCode = cmd.execute("cache", "--help");
+        assertEquals(0, exitCode);
+        assertTrue(out.toString().contains("cache"));
+    }
 }

@@ -1,10 +1,12 @@
 package com.helix;
 
+import com.helix.cli.CacheCommand;
 import com.helix.cli.CompileCommand;
 import com.helix.cli.ExecuteCommand;
 import com.helix.cli.ExperimentCommand;
 import com.helix.cli.ProfileCommand;
 import com.helix.cli.ReplCommand;
+import com.helix.cli.StreamCommand;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 
@@ -21,7 +23,9 @@ import picocli.CommandLine.Command;
                 ExecuteCommand.class,
                 ProfileCommand.class,
                 ExperimentCommand.class,
-                ReplCommand.class
+                ReplCommand.class,
+                StreamCommand.class,
+                CacheCommand.class
         }
 )
 public class HelixApplication implements Runnable {
@@ -40,6 +44,8 @@ public class HelixApplication implements Runnable {
                   profile     Profile JIT/GC execution or launch TUI dashboard
                   experiment  Execute JVM behavior performance experiments
                   repl        Interactive JLine 3 Terminal REPL and Bytecode Disassembler
+                  stream      Stream rule evaluation daemon via Kafka or Disruptor
+                  cache       Manage and inspect distributed and tiered rule caches
                 ---------------------------------------------------------------
                 """);
     }

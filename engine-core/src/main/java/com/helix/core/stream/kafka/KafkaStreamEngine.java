@@ -78,7 +78,9 @@ public class KafkaStreamEngine implements StreamBridge {
         Objects.requireNonNull(topic, "topic cannot be null");
         Objects.requireNonNull(handler, "handler cannot be null");
         topicHandlers.put(topic, handler);
-        consumer.subscribe(topicHandlers.keySet());
+        if (!config.getInputTopics().contains(topic) || !topicHandlers.keySet().equals(config.getInputTopics())) {
+            consumer.subscribe(topicHandlers.keySet());
+        }
     }
 
     @Override
