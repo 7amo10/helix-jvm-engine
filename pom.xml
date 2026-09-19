@@ -63,6 +63,9 @@
         <picocli.version>4.7.5</picocli.version>
         <lanterna.version>3.1.1</lanterna.version>
         <jline.version>3.25.1</jline.version>
+        <jedis.version>5.1.2</jedis.version>
+        <disruptor.version>3.4.4</disruptor.version>
+        <kafka.version>3.7.0</kafka.version>
 
         <!-- Maven Plugin Versions -->
         <maven.compiler.plugin.version>3.11.0</maven.compiler.plugin.version>
@@ -74,6 +77,7 @@
         <maven.source.plugin.version>3.3.0</maven.source.plugin.version>
         <maven.assembly.plugin.version>3.6.0</maven.assembly.plugin.version>
         <spotbugs.plugin.version>4.7.3.5</spotbugs.plugin.version>
+        <exec.maven.plugin.version>3.1.1</exec.maven.plugin.version>
     </properties>
 
     <dependencyManagement>
@@ -129,6 +133,21 @@
                 <groupId>com.github.ben-manes.caffeine</groupId>
                 <artifactId>caffeine</artifactId>
                 <version>${caffeine.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>redis.clients</groupId>
+                <artifactId>jedis</artifactId>
+                <version>${jedis.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.lmax</groupId>
+                <artifactId>disruptor</artifactId>
+                <version>${disruptor.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.kafka</groupId>
+                <artifactId>kafka-clients</artifactId>
+                <version>${kafka.version}</version>
             </dependency>
 
             <!-- JSON Processing -->
@@ -230,6 +249,13 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-shade-plugin</artifactId>
                     <version>${maven.shade.plugin.version}</version>
+                </plugin>
+
+                <!-- Exec Maven Plugin -->
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>exec-maven-plugin</artifactId>
+                    <version>${exec.maven.plugin.version}</version>
                 </plugin>
 
                 <!-- Jar Plugin for Manifest Manifest Attributes -->

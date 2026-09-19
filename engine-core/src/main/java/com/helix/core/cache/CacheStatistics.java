@@ -12,6 +12,7 @@ public class CacheStatistics {
     private final AtomicLong promotionsL2ToL1 = new AtomicLong(0);
     private final AtomicLong demotionsL1ToL2 = new AtomicLong(0);
     private final AtomicLong demotionsL2ToL3 = new AtomicLong(0);
+    private final AtomicLong hitsL4 = new AtomicLong(0);
     private final AtomicLong evictions = new AtomicLong(0);
 
     public void recordHit(CacheTier tier) {
@@ -19,7 +20,12 @@ public class CacheStatistics {
             case L1_STRONG -> hitsL1.incrementAndGet();
             case L2_SOFT -> hitsL2.incrementAndGet();
             case L3_WEAK -> hitsL3.incrementAndGet();
+            case L4_REDIS -> hitsL4.incrementAndGet();
         }
+    }
+
+    public long getHitsL4() {
+        return hitsL4.get();
     }
 
     public void recordMiss() {

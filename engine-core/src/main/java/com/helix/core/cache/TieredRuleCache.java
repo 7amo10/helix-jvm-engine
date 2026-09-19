@@ -6,14 +6,19 @@ import com.helix.api.CompiledRule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.helix.api.cache.DistributedRuleCache;
+import com.helix.core.cache.l4.RuleKeyHasher;
+
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 /**
- * Three-tier rule cache supporting L1 (Strong Caffeine), L2 (SoftReference), and L3 (WeakReference).
+ * Multi-tier rule cache supporting L1 (Strong Caffeine), L2 (SoftReference), L3 (WeakReference),
+ * and L4 (Distributed Redis) with promotion and cluster invalidation.
  */
 public class TieredRuleCache implements AutoCloseable {
 
@@ -24,6 +29,9 @@ public class TieredRuleCache implements AutoCloseable {
     private final Map<CacheKey, ReferenceManager.KeyedWeakReference<CacheKey, CompiledRule>> l3Cache = new ConcurrentHashMap<>();
     private final Map<CacheKey, PromotionPolicy> promotionPolicies = new ConcurrentHashMap<>();
 
+    private final DistributedRuleCache l4Cache;
+    private final Function<byte[], CompiledRule> l4RuleLoader;
+
     private final ReferenceManager referenceManager = new ReferenceManager();
     private final CacheStatistics statistics = new CacheStatistics();
     private final java.util.concurrent.locks.ReentrantLock cleanupLock = new java.util.concurrent.locks.ReentrantLock();
@@ -33,6 +41,14 @@ public class TieredRuleCache implements AutoCloseable {
     }
 
     public TieredRuleCache(long l1MaxSize, long l1ExpireAfterWriteMinutes, TimeUnit unit) {
+        this(l1MaxSize, l1ExpireAfterWriteMinutes, unit, null, null);
+    }
+
+    public TieredRuleCache(long l1MaxSize, long l1ExpireAfterWriteMinutes, TimeUnit unit,
+                           DistributedRuleCache l4Cache,
+                           Function<byte[], CompiledRule> l4RuleLoader) {
+        this.l4Cache = l4Cache;
+        this.l4RuleLoader = l4RuleLoader;
         this.l1Cache = Caffeine.newBuilder()
                 .maximumSize(l1MaxSize)
                 .expireAfterWrite(l1ExpireAfterWriteMinutes, unit)
@@ -103,6 +119,24 @@ public class TieredRuleCache implements AutoCloseable {
             }
         }
 
+        // 4. Check L4 (Distributed / Redis Cache)
+        if (l4Cache != null) {
+            String ruleHash = RuleKeyHasher.hashRule(key.getRuleName() + ":" + key.getVersion() + ":" + key.getSchemaHash());
+            Optional<byte[]> l4Bytes = l4Cache.getBytecode(ruleHash);
+            if (l4Bytes.isPresent() && l4RuleLoader != null) {
+                try {
+                    CompiledRule loadedRule = l4RuleLoader.apply(l4Bytes.get());
+                    if (loadedRule != null) {
+                        l1Cache.put(key, loadedRule);
+                        statistics.recordHit(CacheTier.L4_REDIS);
+                        return Optional.of(loadedRule);
+                    }
+                } catch (Exception e) {
+                    log.warn("Failed to load compiled rule from L4 bytecode for key {}: {}", key, e.getMessage());
+                }
+            }
+        }
+
         statistics.recordMiss();
         return Optional.empty();
     }
@@ -121,7 +155,28 @@ public class TieredRuleCache implements AutoCloseable {
             l2Cache.remove(key);
             l3Cache.remove(key);
             promotionPolicies.remove(key);
+            if (l4Cache != null) {
+                String ruleHash = RuleKeyHasher.hashRule(key.getRuleName() + ":" + key.getVersion() + ":" + key.getSchemaHash());
+                l4Cache.invalidate(ruleHash);
+            }
         }
+    }
+
+    /**
+     * Purges all cache entries matching the specified rule name across local L1, L2, and L3 tiers.
+     *
+     * @param ruleName name of the rule to evict
+     */
+    public void invalidateByName(String ruleName) {
+        if (ruleName == null) return;
+        l1Cache.asMap().keySet().removeIf(k -> ruleName.equals(k.getRuleName()));
+        l2Cache.keySet().removeIf(k -> ruleName.equals(k.getRuleName()));
+        l3Cache.keySet().removeIf(k -> ruleName.equals(k.getRuleName()));
+        promotionPolicies.keySet().removeIf(k -> ruleName.equals(k.getRuleName()));
+    }
+
+    public DistributedRuleCache getL4Cache() {
+        return l4Cache;
     }
 
     public void clear() {
@@ -134,6 +189,10 @@ public class TieredRuleCache implements AutoCloseable {
     public CacheStatsSnapshot getStats() {
         cleanUpReferences();
         return statistics.snapshot(l1Cache.estimatedSize(), l2Cache.size(), l3Cache.size());
+    }
+
+    public CacheStatistics getCacheStatistics() {
+        return statistics;
     }
 
     private void cleanUpReferences() {
