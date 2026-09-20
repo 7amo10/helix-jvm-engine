@@ -35,16 +35,22 @@ public class RuleCompiler {
     private final AstBuilder astBuilder;
     private final BytecodeOptimizer bytecodeOptimizer;
     private final GeneratorType defaultGeneratorType;
+    private final boolean profilingEnabled;
 
     public RuleCompiler() {
-        this(GeneratorType.BYTE_BUDDY);
+        this(GeneratorType.BYTE_BUDDY, false);
     }
 
     public RuleCompiler(GeneratorType defaultGeneratorType) {
+        this(defaultGeneratorType, false);
+    }
+
+    public RuleCompiler(GeneratorType defaultGeneratorType, boolean profilingEnabled) {
         this.ruleParser = new RuleParser();
         this.astBuilder = new AstBuilder();
         this.bytecodeOptimizer = new BytecodeOptimizer(true);
         this.defaultGeneratorType = Objects.requireNonNull(defaultGeneratorType, "defaultGeneratorType cannot be null");
+        this.profilingEnabled = profilingEnabled;
     }
 
     /**
@@ -144,8 +150,12 @@ public class RuleCompiler {
     private BytecodeGenerator selectGenerator(GeneratorType generatorType) {
         return switch (generatorType) {
             case BYTE_BUDDY -> new ByteBuddyGenerator();
-            case ASM -> new AsmBytecodeGenerator();
+            case ASM -> new AsmBytecodeGenerator(profilingEnabled);
         };
+    }
+
+    public boolean isProfilingEnabled() {
+        return profilingEnabled;
     }
 
     public BytecodeOptimizer getBytecodeOptimizer() {
