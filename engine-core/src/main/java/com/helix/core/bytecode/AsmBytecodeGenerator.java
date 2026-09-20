@@ -11,6 +11,7 @@ import com.helix.core.parser.ast.LiteralNode;
 import com.helix.core.parser.ast.OnnxInferenceNode;
 import com.helix.core.parser.ast.UnaryOpNode;
 import com.helix.core.parser.ast.VariableNode;
+import com.helix.profiler.node.AstNodeProfiler;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -28,6 +29,20 @@ import java.util.concurrent.atomic.AtomicLong;
  * {@code FCMP}/{@code DCMP}) bypassing reflection and dynamic dispatch, achieving sub-millisecond execution latency.</p>
  */
 public class AsmBytecodeGenerator implements BytecodeGenerator, Opcodes {
+
+    private final boolean profilingEnabled;
+
+    public AsmBytecodeGenerator() {
+        this(false);
+    }
+
+    public AsmBytecodeGenerator(boolean profilingEnabled) {
+        this.profilingEnabled = profilingEnabled;
+    }
+
+    public boolean isProfilingEnabled() {
+        return profilingEnabled;
+    }
 
     private static final Logger log = LoggerFactory.getLogger(AsmBytecodeGenerator.class);
     private static final AtomicLong classCounter = new AtomicLong(0);
@@ -87,7 +102,7 @@ public class AsmBytecodeGenerator implements BytecodeGenerator, Opcodes {
                     mv.visitMethodInsn(INVOKESTATIC, "java/lang/Float", "valueOf", "(F)Ljava/lang/Float;", false);
                     mv.visitVarInsn(ASTORE, resultVar);
                 } else {
-                    emitBooleanExpr(astRoot, mv, classBuilder.getClassNameInternal());
+                    emitBooleanExpr(astRoot, mv, classBuilder.getClassNameInternal(), rule);
                     mv.visitMethodInsn(INVOKESTATIC, "java/lang/Boolean", "valueOf", "(Z)Ljava/lang/Boolean;", false);
                     mv.visitVarInsn(ASTORE, resultVar);
                 }
@@ -189,15 +204,15 @@ public class AsmBytecodeGenerator implements BytecodeGenerator, Opcodes {
         return false;
     }
 
-    private void emitBooleanExpr(ExpressionNode node, MethodVisitor mv, String classNameInternal) {
+    private void emitBooleanExpr(ExpressionNode node, MethodVisitor mv, String classNameInternal, Rule rule) {
         if (node instanceof BinaryOpNode b) {
             switch (b.getOperator()) {
                 case AND -> {
                     Label falseLbl = new Label();
                     Label endLbl = new Label();
-                    emitBooleanExpr(b.getLeft(), mv, classNameInternal);
+                    emitBooleanExpr(b.getLeft(), mv, classNameInternal, rule);
                     mv.visitJumpInsn(IFEQ, falseLbl);
-                    emitBooleanExpr(b.getRight(), mv, classNameInternal);
+                    emitBooleanExpr(b.getRight(), mv, classNameInternal, rule);
                     mv.visitJumpInsn(IFEQ, falseLbl);
                     mv.visitInsn(ICONST_1);
                     mv.visitJumpInsn(GOTO, endLbl);
@@ -209,9 +224,9 @@ public class AsmBytecodeGenerator implements BytecodeGenerator, Opcodes {
                 case OR -> {
                     Label trueLbl = new Label();
                     Label endLbl = new Label();
-                    emitBooleanExpr(b.getLeft(), mv, classNameInternal);
+                    emitBooleanExpr(b.getLeft(), mv, classNameInternal, rule);
                     mv.visitJumpInsn(IFNE, trueLbl);
-                    emitBooleanExpr(b.getRight(), mv, classNameInternal);
+                    emitBooleanExpr(b.getRight(), mv, classNameInternal, rule);
                     mv.visitJumpInsn(IFNE, trueLbl);
                     mv.visitInsn(ICONST_0);
                     mv.visitJumpInsn(GOTO, endLbl);
@@ -221,47 +236,15 @@ public class AsmBytecodeGenerator implements BytecodeGenerator, Opcodes {
                     return;
                 }
                 case GREATER_THAN, GREATER_EQUAL, LESS_THAN, LESS_EQUAL, EQUAL, NOT_EQUAL -> {
-                    // Object / String equality
-                    if (b.getOperator() == BinaryOpNode.Operator.EQUAL || b.getOperator() == BinaryOpNode.Operator.NOT_EQUAL) {
-                        if (isStringOrObject(b.getLeft()) || isStringOrObject(b.getRight())) {
-                            emitObjectExpr(b.getLeft(), mv);
-                            emitObjectExpr(b.getRight(), mv);
-                            mv.visitMethodInsn(INVOKESTATIC, "java/util/Objects", "equals", "(Ljava/lang/Object;Ljava/lang/Object;)Z", false);
-                            if (b.getOperator() == BinaryOpNode.Operator.NOT_EQUAL) {
-                                Label trueLbl = new Label();
-                                Label endLbl = new Label();
-                                mv.visitJumpInsn(IFEQ, trueLbl);
-                                mv.visitInsn(ICONST_0);
-                                mv.visitJumpInsn(GOTO, endLbl);
-                                mv.visitLabel(trueLbl);
-                                mv.visitInsn(ICONST_1);
-                                mv.visitLabel(endLbl);
-                            }
-                            return;
-                        }
+                    if (profilingEnabled) {
+                        String nodeId = determineNodeId(rule, b);
+                        AstNodeProfiler.registerNode(rule != null ? rule.getName() : "unknown", nodeId);
+                        emitProfilerEntry(mv, nodeId);
+                        emitComparisonExpr(b, mv);
+                        emitProfilerExit(mv, nodeId);
+                    } else {
+                        emitComparisonExpr(b, mv);
                     }
-
-                    // Check if comparing OnnxInferenceNode with a LiteralNode
-                    if (b.getLeft() instanceof OnnxInferenceNode onnx && b.getRight() instanceof LiteralNode lit && lit.getValue() instanceof Number n) {
-                        emitOnnxInference(onnx, mv);
-                        mv.visitLdcInsn(n.floatValue());
-                        mv.visitInsn(FCMPG);
-                        emitComparisonJump(b.getOperator(), mv);
-                        return;
-                    }
-                    if (b.getRight() instanceof OnnxInferenceNode onnx && b.getLeft() instanceof LiteralNode lit && lit.getValue() instanceof Number n) {
-                        mv.visitLdcInsn(n.floatValue());
-                        emitOnnxInference(onnx, mv);
-                        mv.visitInsn(FCMPG);
-                        emitComparisonJump(b.getOperator(), mv);
-                        return;
-                    }
-
-                    // Numeric comparison via double
-                    emitNumericExpr(b.getLeft(), mv);
-                    emitNumericExpr(b.getRight(), mv);
-                    mv.visitInsn(DCMPG);
-                    emitComparisonJump(b.getOperator(), mv);
                     return;
                 }
                 default -> throw new IllegalArgumentException("Unsupported binary operator in boolean expression: " + b.getOperator());
@@ -271,7 +254,7 @@ public class AsmBytecodeGenerator implements BytecodeGenerator, Opcodes {
         if (node instanceof UnaryOpNode u && u.getOperator() == UnaryOpNode.Operator.NOT) {
             Label trueLbl = new Label();
             Label endLbl = new Label();
-            emitBooleanExpr(u.getOperand(), mv, classNameInternal);
+            emitBooleanExpr(u.getOperand(), mv, classNameInternal, rule);
             mv.visitJumpInsn(IFEQ, trueLbl);
             mv.visitInsn(ICONST_0);
             mv.visitJumpInsn(GOTO, endLbl);
@@ -282,10 +265,21 @@ public class AsmBytecodeGenerator implements BytecodeGenerator, Opcodes {
         }
 
         if (node instanceof VariableNode v) {
-            mv.visitVarInsn(ALOAD, 1); // ExecutionContext
-            mv.visitLdcInsn(v.getName());
-            mv.visitMethodInsn(INVOKESTATIC, "com/helix/core/bytecode/AsmBytecodeGenerator", "resolveBoolean",
-                    "(Lcom/helix/api/ExecutionContext;Ljava/lang/String;)Z", false);
+            if (profilingEnabled) {
+                String nodeId = determineNodeId(rule, v);
+                AstNodeProfiler.registerNode(rule != null ? rule.getName() : "unknown", nodeId);
+                emitProfilerEntry(mv, nodeId);
+                mv.visitVarInsn(ALOAD, 1); // ExecutionContext
+                mv.visitLdcInsn(v.getName());
+                mv.visitMethodInsn(INVOKESTATIC, "com/helix/core/bytecode/AsmBytecodeGenerator", "resolveBoolean",
+                        "(Lcom/helix/api/ExecutionContext;Ljava/lang/String;)Z", false);
+                emitProfilerExit(mv, nodeId);
+            } else {
+                mv.visitVarInsn(ALOAD, 1); // ExecutionContext
+                mv.visitLdcInsn(v.getName());
+                mv.visitMethodInsn(INVOKESTATIC, "com/helix/core/bytecode/AsmBytecodeGenerator", "resolveBoolean",
+                        "(Lcom/helix/api/ExecutionContext;Ljava/lang/String;)Z", false);
+            }
             return;
         }
 
@@ -295,14 +289,102 @@ public class AsmBytecodeGenerator implements BytecodeGenerator, Opcodes {
         }
 
         if (node instanceof OnnxInferenceNode onnx) {
-            emitOnnxInference(onnx, mv);
-            mv.visitLdcInsn(0.5f);
-            mv.visitInsn(FCMPG);
-            emitComparisonJump(BinaryOpNode.Operator.GREATER_THAN, mv);
+            if (profilingEnabled) {
+                String nodeId = determineNodeId(rule, onnx);
+                AstNodeProfiler.registerNode(rule != null ? rule.getName() : "unknown", nodeId);
+                emitProfilerEntry(mv, nodeId);
+                emitOnnxInference(onnx, mv);
+                mv.visitLdcInsn(0.5f);
+                mv.visitInsn(FCMPG);
+                emitComparisonJump(BinaryOpNode.Operator.GREATER_THAN, mv);
+                emitProfilerExit(mv, nodeId);
+            } else {
+                emitOnnxInference(onnx, mv);
+                mv.visitLdcInsn(0.5f);
+                mv.visitInsn(FCMPG);
+                emitComparisonJump(BinaryOpNode.Operator.GREATER_THAN, mv);
+            }
             return;
         }
 
         throw new IllegalArgumentException("Cannot emit node as boolean expression: " + node);
+    }
+
+    private void emitComparisonExpr(BinaryOpNode b, MethodVisitor mv) {
+        // Object / String equality
+        if (b.getOperator() == BinaryOpNode.Operator.EQUAL || b.getOperator() == BinaryOpNode.Operator.NOT_EQUAL) {
+            if (isStringOrObject(b.getLeft()) || isStringOrObject(b.getRight())) {
+                emitObjectExpr(b.getLeft(), mv);
+                emitObjectExpr(b.getRight(), mv);
+                mv.visitMethodInsn(INVOKESTATIC, "java/util/Objects", "equals", "(Ljava/lang/Object;Ljava/lang/Object;)Z", false);
+                if (b.getOperator() == BinaryOpNode.Operator.NOT_EQUAL) {
+                    Label trueLbl = new Label();
+                    Label endLbl = new Label();
+                    mv.visitJumpInsn(IFEQ, trueLbl);
+                    mv.visitInsn(ICONST_0);
+                    mv.visitJumpInsn(GOTO, endLbl);
+                    mv.visitLabel(trueLbl);
+                    mv.visitInsn(ICONST_1);
+                    mv.visitLabel(endLbl);
+                }
+                return;
+            }
+        }
+
+        // Check if comparing OnnxInferenceNode with a LiteralNode
+        if (b.getLeft() instanceof OnnxInferenceNode onnx && b.getRight() instanceof LiteralNode lit && lit.getValue() instanceof Number n) {
+            emitOnnxInference(onnx, mv);
+            mv.visitLdcInsn(n.floatValue());
+            mv.visitInsn(FCMPG);
+            emitComparisonJump(b.getOperator(), mv);
+            return;
+        }
+        if (b.getRight() instanceof OnnxInferenceNode onnx && b.getLeft() instanceof LiteralNode lit && lit.getValue() instanceof Number n) {
+            mv.visitLdcInsn(n.floatValue());
+            emitOnnxInference(onnx, mv);
+            mv.visitInsn(FCMPG);
+            emitComparisonJump(b.getOperator(), mv);
+            return;
+        }
+
+        // Numeric comparison via double
+        emitNumericExpr(b.getLeft(), mv);
+        emitNumericExpr(b.getRight(), mv);
+        mv.visitInsn(DCMPG);
+        emitComparisonJump(b.getOperator(), mv);
+    }
+
+    private void emitProfilerEntry(MethodVisitor mv, String nodeId) {
+        mv.visitLdcInsn(nodeId);
+        mv.visitMethodInsn(INVOKESTATIC, "com/helix/profiler/node/AstNodeProfiler", "recordEntry", "(Ljava/lang/String;)V", false);
+    }
+
+    private void emitProfilerExit(MethodVisitor mv, String nodeId) {
+        mv.visitInsn(DUP);
+        mv.visitLdcInsn(nodeId);
+        mv.visitInsn(SWAP);
+        mv.visitMethodInsn(INVOKESTATIC, "com/helix/profiler/node/AstNodeProfiler", "recordExit", "(Ljava/lang/String;Z)V", false);
+    }
+
+    private String determineNodeId(Rule rule, ExpressionNode node) {
+        if (node instanceof BinaryOpNode b) {
+            if (b.getLeft() instanceof OnnxInferenceNode onnx) {
+                return "clause_ml_" + sanitizeName(onnx.getModelName()) + "_" + b.getOperator().name().toLowerCase();
+            } else if (b.getRight() instanceof OnnxInferenceNode onnx) {
+                return "clause_ml_" + sanitizeName(onnx.getModelName()) + "_" + b.getOperator().name().toLowerCase();
+            } else if (b.getLeft() instanceof VariableNode var) {
+                return "clause_" + sanitizeName(var.getName()) + "_" + b.getOperator().name().toLowerCase();
+            } else if (b.getRight() instanceof VariableNode var) {
+                return "clause_" + sanitizeName(var.getName()) + "_" + b.getOperator().name().toLowerCase();
+            } else {
+                return "clause_cmp_" + b.getOperator().name().toLowerCase();
+            }
+        } else if (node instanceof OnnxInferenceNode onnx) {
+            return "clause_ml_" + sanitizeName(onnx.getModelName());
+        } else if (node instanceof VariableNode var) {
+            return "clause_var_" + sanitizeName(var.getName());
+        }
+        return "clause_node_" + Math.abs(Objects.hash(rule != null ? rule.getName() : "", node));
     }
 
     private boolean isStringOrObject(ExpressionNode node) {
