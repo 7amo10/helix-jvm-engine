@@ -113,4 +113,9 @@ public class DeadCodeEliminator implements AstVisitor<ExpressionNode> {
         }
         return new FunctionCallNode(node.getFunctionName(), args);
     }
+
+    @Override
+    public ExpressionNode visit(com.helix.core.parser.ast.OnnxInferenceNode node) {
+        return node;
+    }
 }

@@ -121,6 +121,11 @@ public class ConstantFolder implements AstVisitor<ExpressionNode> {
         return new FunctionCallNode(node.getFunctionName(), args);
     }
 
+    @Override
+    public ExpressionNode visit(com.helix.core.parser.ast.OnnxInferenceNode node) {
+        return node;
+    }
+
     private ExpressionNode foldNumeric(BinaryOpNode.Operator op, Number n1, Number n2) {
         boolean isDouble = n1 instanceof Double || n2 instanceof Double;
         boolean isLong = n1 instanceof Long || n2 instanceof Long;

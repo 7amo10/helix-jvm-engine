@@ -27,4 +27,8 @@ public interface AstVisitor<R> {
     default R visit(ComparisonNode node) {
         return visit((BinaryOpNode) node);
     }
+
+    default R visit(OnnxInferenceNode node) {
+        return null;
+    }
 }

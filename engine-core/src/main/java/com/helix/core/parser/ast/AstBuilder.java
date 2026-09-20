@@ -339,8 +339,47 @@ public class AstBuilder {
                     consume();
                     return new LiteralNode(t.value, Boolean.class);
                 case IDENTIFIER:
-                    consume();
-                    return new VariableNode(t.text);
+                    Token idToken = consume();
+                    if (currentToken().type == TokenType.LPAREN) {
+                        consume(); // '('
+                        List<ExpressionNode> args = new ArrayList<>();
+                        if (currentToken().type != TokenType.RPAREN) {
+                            args.add(parseExpression());
+                            while (currentToken().type == TokenType.COMMA) {
+                                consume(); // ','
+                                args.add(parseExpression());
+                            }
+                        }
+                        expect(TokenType.RPAREN); // ')'
+
+                        if ("ML".equalsIgnoreCase(idToken.text)) {
+                            if (args.isEmpty()) {
+                                throw new ParseException("ML() requires at least a model name argument");
+                            }
+                            String modelName;
+                            ExpressionNode arg0 = args.get(0);
+                            if (arg0 instanceof VariableNode vn) {
+                                modelName = vn.getName();
+                            } else if (arg0 instanceof LiteralNode ln && ln.getValue() instanceof String s) {
+                                modelName = s;
+                            } else {
+                                throw new ParseException("ML() model name must be an identifier or string literal, got: " + arg0);
+                            }
+
+                            String outTensor = "probabilities";
+                            int outIdx = 1;
+                            if (args.size() >= 2 && args.get(1) instanceof LiteralNode ln && ln.getValue() instanceof String s) {
+                                outTensor = s;
+                            }
+                            if (args.size() >= 3 && args.get(2) instanceof LiteralNode ln && ln.getValue() instanceof Number n) {
+                                outIdx = n.intValue();
+                            }
+                            return new OnnxInferenceNode(modelName, outTensor, outIdx);
+                        }
+
+                        return new FunctionCallNode(idToken.text, args);
+                    }
+                    return new VariableNode(idToken.text);
                 case LPAREN:
                     consume();
                     ExpressionNode inner = parseExpression();
