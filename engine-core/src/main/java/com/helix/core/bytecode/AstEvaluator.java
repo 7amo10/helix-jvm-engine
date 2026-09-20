@@ -283,6 +283,9 @@ public class AstEvaluator implements AstVisitor<Object> {
 
     @Override
     public Object visit(com.helix.core.parser.ast.OnnxInferenceNode node) {
+        if (com.helix.core.ml.OnnxModelExecutor.getSessionPool() != null) {
+            return com.helix.core.ml.OnnxModelExecutor.evaluate(node.getModelName(), node.getOutputTensorName(), node.getOutputIndex(), context);
+        }
         String model = node.getModelName();
         if ("fraud".equalsIgnoreCase(model) || model.contains("fraud")) return 0.88;
         if ("risk".equalsIgnoreCase(model)) return 0.05;
