@@ -9,6 +9,7 @@ import com.helix.core.parser.ast.FieldAccessNode;
 import com.helix.core.parser.ast.FunctionCallNode;
 import com.helix.core.parser.ast.LiteralNode;
 import com.helix.core.parser.ast.MethodCallNode;
+import com.helix.core.parser.ast.OnnxInferenceNode;
 import com.helix.core.parser.ast.RuleNode;
 import com.helix.core.parser.ast.UnaryOpNode;
 import com.helix.core.parser.ast.VariableNode;
@@ -91,6 +92,12 @@ public class AstTreeRenderer {
                     .append("FunctionCallNode: ").append(fn.getFunctionName()).append("()")
                     .append(TerminalRenderer.ANSI_RESET).append("\n");
             children.addAll(fn.getArguments());
+        } else if (node instanceof OnnxInferenceNode onnx) {
+            sb.append(TerminalRenderer.ANSI_BOLD).append("\u001B[34m")
+                    .append("OnnxInferenceNode: ML(\"").append(onnx.getModelName()).append("\"")
+                    .append(onnx.getOutputTensorName() != null ? ", \"" + onnx.getOutputTensorName() + "\"" : "")
+                    .append(")")
+                    .append(TerminalRenderer.ANSI_RESET).append("\n");
         } else if (node instanceof MethodCallNode method) {
             sb.append(TerminalRenderer.ANSI_BOLD).append("\u001B[35m")
                     .append("MethodCallNode: .").append(method.getMethodName()).append("()")
