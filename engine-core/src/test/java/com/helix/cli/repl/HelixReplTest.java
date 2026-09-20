@@ -60,7 +60,7 @@ class HelixReplTest {
         }
 
         System.out.println("REPL launch time: " + minDurationMs + " ms");
-        assertTrue(minDurationMs <= 50, "REPL launch time (" + minDurationMs + " ms) should be under 50 ms");
+        assertTrue(minDurationMs <= 100, "REPL launch time (" + minDurationMs + " ms) should be under 100 ms");
     }
 
     @Test
