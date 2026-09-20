@@ -3,6 +3,7 @@ package com.helix.core;
 import com.helix.api.CompiledRule;
 import com.helix.api.Rule;
 import com.helix.api.RuleCompilationException;
+import com.helix.core.bytecode.AsmBytecodeGenerator;
 import com.helix.core.bytecode.AsmGenerator;
 import com.helix.core.bytecode.ByteBuddyGenerator;
 import com.helix.core.bytecode.BytecodeGenerator;
@@ -143,7 +144,7 @@ public class RuleCompiler {
     private BytecodeGenerator selectGenerator(GeneratorType generatorType) {
         return switch (generatorType) {
             case BYTE_BUDDY -> new ByteBuddyGenerator();
-            case ASM -> new AsmGenerator();
+            case ASM -> new AsmBytecodeGenerator();
         };
     }
 

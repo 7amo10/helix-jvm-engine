@@ -53,6 +53,33 @@ public class OnnxSessionPool implements AutoCloseable {
         this.featureExtractor = Objects.requireNonNull(featureExtractor, "featureExtractor cannot be null");
         this.maxSessionsPerModel = Math.max(1, maxSessionsPerModel);
         this.environment = OrtEnvironment.getEnvironment();
+        if (OnnxModelExecutor.getSessionPool() == null) {
+            OnnxModelExecutor.setSessionPool(this);
+        }
+    }
+
+    /**
+     * Static runtime bridge invoked by compiled ASM bytecode.
+     *
+     * @param context   runtime execution context containing input features
+     * @param modelName name of registered ONNX model
+     * @return predicted probability score as primitive float
+     */
+    public static float run(ExecutionContext context, String modelName) {
+        return (float) OnnxModelExecutor.evaluate(modelName, context);
+    }
+
+    /**
+     * Static runtime bridge invoked by compiled ASM bytecode with explicit output tensor and index.
+     *
+     * @param context          runtime execution context containing input features
+     * @param modelName        name of registered ONNX model
+     * @param outputTensorName target output tensor name
+     * @param outputIndex      class or output index
+     * @return predicted probability score as primitive float
+     */
+    public static float run(ExecutionContext context, String modelName, String outputTensorName, int outputIndex) {
+        return (float) OnnxModelExecutor.evaluate(modelName, outputTensorName, outputIndex, context);
     }
 
     /**
@@ -243,6 +270,9 @@ public class OnnxSessionPool implements AutoCloseable {
                 pool.close();
             }
             pools.clear();
+            if (OnnxModelExecutor.getSessionPool() == this) {
+                OnnxModelExecutor.reset();
+            }
             logger.info("OnnxSessionPool shut down cleanly.");
         }
     }
