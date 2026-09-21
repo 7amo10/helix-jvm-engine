@@ -201,6 +201,70 @@ public class OnnxSessionPool implements AutoCloseable {
     }
 
     /**
+     * Executes tensor-based inference with raw 2D float matrix inputs and outputs.
+     *
+     * @param modelName        name of registered ONNX model
+     * @param inputTensorName  optional input tensor name (or null to use model default)
+     * @param inputMatrix      2D float matrix of inputs
+     * @param outputTensorName optional output tensor name (or null to use model default)
+     * @return 2D float matrix of output logits
+     */
+    public float[][] executeTensorInference(String modelName, String inputTensorName, float[][] inputMatrix, String outputTensorName) {
+        ensureOpen();
+        OnnxModelDescriptor descriptor = modelRegistry.resolveModel(modelName)
+                .orElseThrow(() -> new IllegalArgumentException("Unregistered or inactive ML model: '" + modelName + "'"));
+
+        ModelPool pool = getOrCreatePool(descriptor);
+        OrtSession session = pool.borrowSession();
+
+        OnnxTensor inputTensor = null;
+        OrtSession.Result result = null;
+
+        try {
+            inputTensor = OnnxTensor.createTensor(environment, inputMatrix);
+            String inputName = inputTensorName != null ? inputTensorName : pool.getInputTensorName(session);
+            String targetOutput = outputTensorName != null ? outputTensorName : descriptor.outputTensorName();
+
+            try {
+                if (targetOutput != null && !targetOutput.isBlank()) {
+                    result = session.run(Collections.singletonMap(inputName, inputTensor), Collections.singleton(targetOutput));
+                } else {
+                    result = session.run(Collections.singletonMap(inputName, inputTensor));
+                }
+            } catch (OrtException e) {
+                result = session.run(Collections.singletonMap(inputName, inputTensor));
+            }
+
+            for (Map.Entry<String, OnnxValue> entry : result) {
+                if (targetOutput == null || entry.getKey().equalsIgnoreCase(targetOutput)) {
+                    if (entry.getValue() instanceof OnnxTensor outTensor && outTensor.getValue() instanceof float[][] matrix) {
+                        return matrix;
+                    }
+                }
+            }
+
+            if (result.iterator().hasNext()) {
+                OnnxValue first = result.iterator().next().getValue();
+                if (first instanceof OnnxTensor outTensor && outTensor.getValue() instanceof float[][] matrix) {
+                    return matrix;
+                }
+            }
+
+            throw new IllegalStateException("Model '" + modelName + "' did not return expected float[][] tensor");
+        } catch (OrtException e) {
+            throw new RuntimeException("ONNX Runtime native evaluation failed for model '" + descriptor.modelName() + "': " + e.getMessage(), e);
+        } finally {
+            if (inputTensor != null) {
+                inputTensor.close();
+            }
+            if (result != null) {
+                result.close();
+            }
+            pool.returnSession(session);
+        }
+    }
+
+    /**
      * Atomically reloads sessions for the named model, draining existing sessions.
      *
      * @param modelName name of model to reload
