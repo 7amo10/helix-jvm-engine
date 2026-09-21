@@ -25,6 +25,7 @@ const sidebars: SidebarsConfig = {
         'architecture-and-internals/bytecode-generators',
         'architecture-and-internals/tiered-cache-internals',
         'architecture-and-internals/classloader-hierarchy',
+        'architecture-and-internals/ml-inference-and-adaptive-optimization',
       ],
     },
     {
@@ -41,6 +42,8 @@ const sidebars: SidebarsConfig = {
         'core-guides/flamegraph-profiling',
         'core-guides/redis-l4-cache',
         'core-guides/distributed-streaming',
+        'core-guides/onnx-model-inference',
+        'core-guides/adaptive-ast-optimizer',
       ],
     },
     {
