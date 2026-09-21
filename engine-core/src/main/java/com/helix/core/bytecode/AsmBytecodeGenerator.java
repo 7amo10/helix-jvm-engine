@@ -367,24 +367,7 @@ public class AsmBytecodeGenerator implements BytecodeGenerator, Opcodes {
     }
 
     private String determineNodeId(Rule rule, ExpressionNode node) {
-        if (node instanceof BinaryOpNode b) {
-            if (b.getLeft() instanceof OnnxInferenceNode onnx) {
-                return "clause_ml_" + sanitizeName(onnx.getModelName()) + "_" + b.getOperator().name().toLowerCase();
-            } else if (b.getRight() instanceof OnnxInferenceNode onnx) {
-                return "clause_ml_" + sanitizeName(onnx.getModelName()) + "_" + b.getOperator().name().toLowerCase();
-            } else if (b.getLeft() instanceof VariableNode var) {
-                return "clause_" + sanitizeName(var.getName()) + "_" + b.getOperator().name().toLowerCase();
-            } else if (b.getRight() instanceof VariableNode var) {
-                return "clause_" + sanitizeName(var.getName()) + "_" + b.getOperator().name().toLowerCase();
-            } else {
-                return "clause_cmp_" + b.getOperator().name().toLowerCase();
-            }
-        } else if (node instanceof OnnxInferenceNode onnx) {
-            return "clause_ml_" + sanitizeName(onnx.getModelName());
-        } else if (node instanceof VariableNode var) {
-            return "clause_var_" + sanitizeName(var.getName());
-        }
-        return "clause_node_" + Math.abs(Objects.hash(rule != null ? rule.getName() : "", node));
+        return AstNodeIdResolver.resolveNodeId(rule, node);
     }
 
     private boolean isStringOrObject(ExpressionNode node) {

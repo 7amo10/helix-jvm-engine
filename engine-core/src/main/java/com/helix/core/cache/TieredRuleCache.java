@@ -71,6 +71,35 @@ public class TieredRuleCache implements AutoCloseable {
         promotionPolicies.computeIfAbsent(key, k -> new PromotionPolicy());
     }
 
+    /**
+     * Atomically hot-swaps an existing cached compiled rule with an optimized version with zero downtime.
+     * Updates L1 Caffeine cache atomically, removes stale demoted references in L2/L3,
+     * and publishes updated bytecode to the L4 distributed tier if configured.
+     *
+     * @param key      cache key identifying the rule
+     * @param newRule  newly compiled rule instance
+     * @param bytecode optional raw class bytecode to persist in L4
+     */
+    public void hotSwap(CacheKey key, CompiledRule newRule, byte[] bytecode) {
+        Objects.requireNonNull(key, "key cannot be null");
+        Objects.requireNonNull(newRule, "newRule cannot be null");
+        cleanUpReferences();
+
+        l1Cache.put(key, newRule);
+        l2Cache.remove(key);
+        l3Cache.remove(key);
+        promotionPolicies.computeIfAbsent(key, k -> new PromotionPolicy());
+
+        if (l4Cache != null && bytecode != null) {
+            String ruleHash = RuleKeyHasher.hashRule(key.getRuleName() + ":" + key.getVersion() + ":" + key.getSchemaHash());
+            l4Cache.putBytecode(ruleHash, key.getRuleName(), key.getVersion(), bytecode);
+        }
+    }
+
+    public void hotSwap(CacheKey key, CompiledRule newRule) {
+        hotSwap(key, newRule, null);
+    }
+
     public Optional<CompiledRule> get(CacheKey key) {
         Objects.requireNonNull(key, "key cannot be null");
         cleanUpReferences();
