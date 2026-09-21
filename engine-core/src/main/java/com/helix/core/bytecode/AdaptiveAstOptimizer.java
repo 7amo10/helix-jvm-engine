@@ -14,6 +14,8 @@ import com.helix.profiler.node.NodeStats;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.helix.core.reorder.ReorderingPolicy;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -25,8 +27,8 @@ import java.util.function.BiFunction;
 
 /**
  * Adaptive AST Optimizer dynamically reordering commutative boolean clauses
- * based on live cost-to-failure ratios (C_i / F_i) and executing zero-downtime
- * bytecode hot-swapping into tiered rule caches.
+ * based on live cost-to-failure ratios (C_i / F_i) or pluggable ReorderingPolicy SPI,
+ * and executing zero-downtime bytecode hot-swapping into tiered rule caches.
  *
  * <p>In short-circuiting conjunctive queries ({@code AND} chains), evaluating clauses with the lowest
  * {@code C_i / F_i} ratio first minimizes the expected total evaluation cost by maximizing the probability
@@ -39,16 +41,28 @@ public class AdaptiveAstOptimizer {
     private static final double DEFAULT_ML_RATIO = 100_000.0;
     private static final double DEFAULT_CHEAP_RATIO = 50.0;
 
+    private final ReorderingPolicy reorderingPolicy;
     private final BiFunction<String, ExpressionNode, Double> customRatioResolver;
     private final BytecodeOptimizer staticOptimizer;
 
     public AdaptiveAstOptimizer() {
-        this((BiFunction<String, ExpressionNode, Double>) null);
+        this((ReorderingPolicy) null);
+    }
+
+    public AdaptiveAstOptimizer(ReorderingPolicy reorderingPolicy) {
+        this.reorderingPolicy = reorderingPolicy;
+        this.customRatioResolver = null;
+        this.staticOptimizer = new BytecodeOptimizer(true);
     }
 
     public AdaptiveAstOptimizer(BiFunction<String, ExpressionNode, Double> customRatioResolver) {
         this.customRatioResolver = customRatioResolver;
+        this.reorderingPolicy = null;
         this.staticOptimizer = new BytecodeOptimizer(true);
+    }
+
+    public ReorderingPolicy getReorderingPolicy() {
+        return reorderingPolicy;
     }
 
     /**
@@ -130,9 +144,36 @@ public class AdaptiveAstOptimizer {
             optimizedClauses.add(opt);
         }
 
-        // Sort clauses ascending by cost-to-failure ratio (stable sort)
-        List<ExpressionNode> sortedClauses = new ArrayList<>(optimizedClauses);
-        sortedClauses.sort(Comparator.comparingDouble(clause -> computeRatio(ruleName, clause)));
+        List<ExpressionNode> sortedClauses;
+        if (reorderingPolicy != null) {
+            List<NodeStats> statsList = new ArrayList<>(optimizedClauses.size());
+            for (ExpressionNode clause : optimizedClauses) {
+                String nodeId = AstNodeIdResolver.resolveNodeId(ruleName, clause);
+                NodeStats stats = AstNodeProfiler.getNodeStats(nodeId)
+                        .orElseGet(() -> new NodeStats(ruleName != null ? ruleName : "unknown", nodeId));
+                statsList.add(stats);
+            }
+            List<Integer> order = reorderingPolicy.determineOrder(statsList);
+            sortedClauses = new ArrayList<>(optimizedClauses.size());
+            boolean[] used = new boolean[optimizedClauses.size()];
+            if (order != null) {
+                for (int idx : order) {
+                    if (idx >= 0 && idx < optimizedClauses.size() && !used[idx]) {
+                        sortedClauses.add(optimizedClauses.get(idx));
+                        used[idx] = true;
+                    }
+                }
+            }
+            for (int i = 0; i < optimizedClauses.size(); i++) {
+                if (!used[i]) {
+                    sortedClauses.add(optimizedClauses.get(i));
+                }
+            }
+        } else {
+            // Sort clauses ascending by cost-to-failure ratio (stable sort)
+            sortedClauses = new ArrayList<>(optimizedClauses);
+            sortedClauses.sort(Comparator.comparingDouble(clause -> computeRatio(ruleName, clause)));
+        }
 
         boolean orderChanged = false;
         for (int i = 0; i < clauses.size(); i++) {
