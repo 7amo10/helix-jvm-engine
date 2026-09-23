@@ -84,4 +84,21 @@ public class JfrEventRecorder {
             log.debug("Failed to emit MemoryAnalysisEvent: {}", e.getMessage());
         }
     }
+
+    public void recordNodeProfile(String ruleName, String nodeId, long executionCount, double avgCostNanos, double failureRate, double ratio) {
+        try {
+            HelixNodeProfileEvent event = new HelixNodeProfileEvent();
+            if (event.isEnabled()) {
+                event.ruleName = ruleName;
+                event.nodeId = nodeId;
+                event.executionCount = executionCount;
+                event.avgCostNanos = avgCostNanos;
+                event.failureRate = failureRate;
+                event.ratio = ratio;
+                event.commit();
+            }
+        } catch (Exception e) {
+            log.debug("Failed to emit HelixNodeProfileEvent: {}", e.getMessage());
+        }
+    }
 }

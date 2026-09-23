@@ -165,6 +165,30 @@ public class TypeChecker implements AstVisitor<Class<?>> {
     }
 
     @Override
+    public Class<?> visit(com.helix.core.parser.ast.OnnxInferenceNode node) {
+        String modelName = node.getModelName();
+        if (modelName == null || modelName.isBlank()) {
+            throw new RuntimeException(new TypeMismatchException("OnnxInferenceNode requires non-blank modelName"));
+        }
+
+        if (typeContext.getModelRegistry().isPresent()) {
+            com.helix.api.ml.ModelRegistry registry = typeContext.getModelRegistry().get();
+            com.helix.api.ml.OnnxModelDescriptor desc = registry.resolveModel(modelName)
+                    .orElseThrow(() -> new RuntimeException(new TypeMismatchException("Unregistered ML model: '" + modelName + "'")));
+
+            for (String requiredFeature : desc.inputFeatures()) {
+                if (typeContext.getVariableType(requiredFeature).isEmpty()) {
+                    throw new RuntimeException(new TypeMismatchException(
+                            "Missing required feature '" + requiredFeature + "' for ML model '" + modelName + "'"
+                    ));
+                }
+            }
+        }
+
+        return Double.class;
+    }
+
+    @Override
     public Class<?> visit(MethodCallNode node) {
         Class<?> targetType = node.getTarget().accept(this);
         List<Class<?>> argTypes = new ArrayList<>();

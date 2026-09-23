@@ -353,6 +353,9 @@ public class ExpressionRuleParser {
                 String name = (String) t.value;
                 if (match(TokenType.LPAREN)) {
                     List<ExpressionNode> args = parseArguments();
+                    if ("ML".equalsIgnoreCase(name)) {
+                        return parseOnnxInferenceNode(t, args);
+                    }
                     return new FunctionCallNode(name, args);
                 }
                 return new VariableNode(name);
@@ -379,6 +382,65 @@ public class ExpressionRuleParser {
             }
             consume(TokenType.RPAREN, "Expected ')' after argument list");
             return args;
+        }
+
+        private ExpressionNode parseOnnxInferenceNode(Token mlToken, List<ExpressionNode> args) throws ExpressionParseException {
+            if (args.isEmpty()) {
+                throw new ExpressionParseException(
+                        "ML() requires at least a model name argument",
+                        expression, mlToken.line, mlToken.column
+                );
+            }
+            if (args.size() > 3) {
+                throw new ExpressionParseException(
+                        "ML() accepts at most 3 arguments (modelName, outputTensorName, outputIndex), got " + args.size(),
+                        expression, mlToken.line, mlToken.column
+                );
+            }
+
+            ExpressionNode arg0 = args.get(0);
+            String modelName;
+            if (arg0 instanceof VariableNode vn) {
+                modelName = vn.getName();
+            } else if (arg0 instanceof LiteralNode ln && ln.getValue() instanceof String s) {
+                modelName = s;
+            } else {
+                throw new ExpressionParseException(
+                        "ML() model name must be an identifier or string literal, got: " + arg0,
+                        expression, mlToken.line, mlToken.column
+                );
+            }
+
+            String outputTensorName = "probabilities";
+            int outputIndex = 1;
+
+            if (args.size() >= 2) {
+                ExpressionNode arg1 = args.get(1);
+                if (arg1 instanceof LiteralNode ln && ln.getValue() instanceof String s) {
+                    outputTensorName = s;
+                } else if (arg1 instanceof VariableNode vn) {
+                    outputTensorName = vn.getName();
+                } else {
+                    throw new ExpressionParseException(
+                            "ML() outputTensorName must be a string literal or identifier, got: " + arg1,
+                            expression, mlToken.line, mlToken.column
+                    );
+                }
+            }
+
+            if (args.size() == 3) {
+                ExpressionNode arg2 = args.get(2);
+                if (arg2 instanceof LiteralNode ln && ln.getValue() instanceof Number n) {
+                    outputIndex = n.intValue();
+                } else {
+                    throw new ExpressionParseException(
+                            "ML() outputIndex must be an integer literal, got: " + arg2,
+                            expression, mlToken.line, mlToken.column
+                    );
+                }
+            }
+
+            return new com.helix.core.parser.ast.OnnxInferenceNode(modelName, outputTensorName, outputIndex);
         }
 
         private boolean check(TokenType type) {

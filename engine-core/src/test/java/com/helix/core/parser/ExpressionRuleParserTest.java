@@ -126,16 +126,16 @@ class ExpressionRuleParserTest {
     }
 
     @Test
-    @DisplayName("Should parse function calls (ML(\"fraud\"), len(items), max(a, b))")
+    @DisplayName("Should parse function calls (customFn(\"test\"), len(items), max(a, b))")
     void testParseFunctionCalls() throws Exception {
-        ExpressionNode ml = parser.parse("ML(\"fraud\") > 0.8");
-        assertInstanceOf(ComparisonNode.class, ml);
-        ComparisonNode cmp = (ComparisonNode) ml;
+        ExpressionNode fnNode = parser.parse("customFn(\"test\") > 0.8");
+        assertInstanceOf(ComparisonNode.class, fnNode);
+        ComparisonNode cmp = (ComparisonNode) fnNode;
         assertInstanceOf(FunctionCallNode.class, cmp.getLeft());
         FunctionCallNode fn = (FunctionCallNode) cmp.getLeft();
-        assertEquals("ML", fn.getFunctionName());
+        assertEquals("customFn", fn.getFunctionName());
         assertEquals(1, fn.getArguments().size());
-        assertEquals("fraud", ((LiteralNode) fn.getArguments().get(0)).getValue());
+        assertEquals("test", ((LiteralNode) fn.getArguments().get(0)).getValue());
 
         ExpressionNode multiArg = parser.parse("max(10, 20) + min(5, 2)");
         assertInstanceOf(BinaryExpressionNode.class, multiArg);

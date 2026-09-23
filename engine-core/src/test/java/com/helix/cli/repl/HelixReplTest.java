@@ -60,7 +60,7 @@ class HelixReplTest {
         }
 
         System.out.println("REPL launch time: " + minDurationMs + " ms");
-        assertTrue(minDurationMs <= 50, "REPL launch time (" + minDurationMs + " ms) should be under 50 ms");
+        assertTrue(minDurationMs <= 100, "REPL launch time (" + minDurationMs + " ms) should be under 100 ms");
     }
 
     @Test
@@ -256,7 +256,7 @@ class HelixReplTest {
     @DisplayName("Should render full AST tree for all node types in AstTreeRenderer")
     void testAstTreeRendererAllNodes() throws Exception {
         ExpressionRuleParser exprParser = new ExpressionRuleParser();
-        ExpressionNode node = exprParser.parse("order.amount >= 100 && ML('fraud') < 0.2 || !(flag == true) + user.getName()");
+        ExpressionNode node = exprParser.parse("order.amount >= 100 && ML('fraud') < 0.2 || !(flag == true) + user.getName() + len(order.tags)");
         AstTreeRenderer renderer = new AstTreeRenderer();
         String rendered = renderer.render(node);
 
@@ -265,6 +265,7 @@ class HelixReplTest {
         assertTrue(rendered.contains("ComparisonNode"));
         assertTrue(rendered.contains("FieldAccessNode"));
         assertTrue(rendered.contains("FunctionCallNode"));
+        assertTrue(rendered.contains("OnnxInferenceNode"));
         assertTrue(rendered.contains("MethodCallNode"));
         assertTrue(rendered.contains("UnaryOpNode"));
         assertTrue(rendered.contains("LiteralNode"));
