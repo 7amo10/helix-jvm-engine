@@ -516,3 +516,4 @@ AND chain — the 18,000 ns fraud model inference is never invoked for 95% of re
 - [Compilation Pipeline](compilation-pipeline) - Full 5-stage rule compilation from JSON DSL to JVM bytecode.
 - [Flamegraph Profiling](../core-guides/flamegraph-profiling) - JFR-based node-level profiling for measuring per-clause cost distributions.
 - [Performance Tuning](../performance-tuning/continuous-benchmarking) - JMH benchmark results for OnnxInferenceBenchmark and AdaptiveOptimizerBenchmark.
+- [Helix Cortex Model Registry REST API](../helix-cortex/api-and-telemetry#machine-learning-model-registry-rest-api-apiv1models) - Enterprise ONNX model lifecycle management, version activation, and Redis cluster hot-swap.

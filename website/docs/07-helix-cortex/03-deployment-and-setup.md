@@ -28,7 +28,9 @@ docker compose up --build -d
 
 ### Services Started:
 - **`postgres`**: PostgreSQL 16-alpine database on port `5432` with automated healthcheck (`pg_isready`).
-- **`helix-cortex`**: WildFly 31.0.0.Final container on port `8080` (HTTP) and `9990` (Management console), waiting for PostgreSQL to be healthy before launch.
+- **`redis`**: Redis 7 Alpine cache and Pub/Sub broker on port `6379` for cluster model activation broadcasts and L4 rule caching.
+- **`helix-cortex`**: WildFly 31.0.0.Final container on port `8080` (HTTP) and `9990` (Management console), waiting for PostgreSQL and Redis to be healthy before launch.
+- **`cortex_models` Volume**: Dedicated persistent Docker volume mounted to `/opt/helix/models` preserving uploaded `.onnx` binary artifacts across container restarts.
 
 Verify container status:
 ```bash
@@ -93,3 +95,15 @@ To prevent database bottlenecking during high-throughput rule execution workload
 | `CORTEX_DB_USER` | `cortex_user` | Database user account. |
 | `CORTEX_DB_PASSWORD` | `cortex_pass` | Database user password. |
 | `CORTEX_JWT_ISSUER` | `https://helix.pulse.com` | MicroProfile JWT expected issuer URI. |
+| `REDIS_HOST` | `redis` | Hostname or IP of the Redis server. |
+| `REDIS_PORT` | `6379` | Redis service port for caching and model activation broadcasts. |
+| `CORTEX_MODELS_STORAGE_DIR` | `/opt/helix/models` | Filesystem mount path for persistent ONNX model storage. |
+| `CORTEX_MODELS_REDIS_TOPIC` | `helix:models:activate` | Redis Pub/Sub topic for cluster-wide model activation events. |
+
+---
+
+## Related Documentation & Cross-Links
+
+- [REST API Reference & Real-Time Telemetry](api-and-telemetry) - Complete endpoint specifications including the [Model Registry Endpoints](api-and-telemetry#machine-learning-model-registry-rest-api-apiv1models).
+- [System Architecture & Integration Flow](architecture-integration) - High-level BCE layer architecture and dynamic model activation pipeline.
+- [ONNX Model Inference Guide](../core-guides/onnx-model-inference) - Rule engine ONNX runtime configuration and session pool sizing.

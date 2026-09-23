@@ -447,3 +447,4 @@ in the same JVM heap as the rule executor, sharing the `ExecutionContext` withou
 - [Adaptive AST Optimizer](adaptive-ast-optimizer) - Runtime cost-based clause reordering to push ML() calls to the tail of AND chains.
 - [Flamegraph Profiling](flamegraph-profiling) - JFR-backed node-level profiling to measure per-clause execution costs.
 - [Rule Syntax and Schemas](rule-syntax-and-schemas) - Full reference for the Helix expression DSL.
+- [Helix Cortex Model Registry REST API](../helix-cortex/api-and-telemetry#machine-learning-model-registry-rest-api-apiv1models) - REST API for uploading, versioning, and cluster hot-swapping ONNX models in Helix Cortex.

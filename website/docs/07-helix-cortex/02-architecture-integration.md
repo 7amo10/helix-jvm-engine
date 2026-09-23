@@ -49,3 +49,18 @@ When a client initiates a request against Helix Cortex, the system executes thro
 - Throughout engine execution, the background `TelemetryControl` service samples JVM and engine metrics (CPU utilization, heap memory usage, active rule sessions, cache hit ratios).
 - Every 1 second, the `SseBroadcaster` streams an SSE event to all connected dashboard consumers via `GET /api/v1/telemetry/stream`.
 - **Flame Graph Telemetry:** Real-time call stack samples are aggregated in-memory via `FlameGraphAggregator` and exposed via REST (`GET /api/v1/telemetry/flamegraph?format=folded|html|svg`) and live SSE streaming (`GET /api/v1/telemetry/flamegraph/stream`), allowing enterprise observability dashboards to visualize CPU hotspots and allocation spikes live.
+
+### 6. ONNX Model Registry & Dynamic Cluster Activation
+- Data scientists upload pre-trained ONNX models via `POST /api/v1/models`, storing metadata in PostgreSQL and raw `.onnx` binaries in persistent volume storage (`/opt/helix/models`).
+- When a model version is activated via `PUT /api/v1/models/{name}/activate`, `ModelRegistryService` updates database flags and triggers `ModelActivationBroadcaster` to publish an invalidation payload to Redis topic `helix:models:activate`.
+- All clustered WildFly nodes receive the Redis broadcast, synchronize their in-memory `LocalModelRegistry`, and hot-swap their `OnnxSessionPool` instances with zero downtime.
+- When compiling rules that invoke `ML(model_name)`, `RuleCompilerService` dynamically resolves the active model version and enriches the compilation context schema with expected feature vectors.
+
+---
+
+## Related Documentation & Cross-Links
+
+- [REST API Reference & Real-Time Telemetry](api-and-telemetry) - Comprehensive API reference including the [Model Registry Endpoints](api-and-telemetry#machine-learning-model-registry-rest-api-apiv1models).
+- [Deployment, Docker Stack & WildFly Setup](deployment-and-setup) - Clustered deployment topology with PostgreSQL, Redis, and persistent volume storage.
+- [ONNX Model Inference Guide](../core-guides/onnx-model-inference) - Rule expression `ML()` grammar reference and in-process ONNX Runtime integration.
+- [ML Inference & Adaptive Optimization Architecture](../architecture-and-internals/ml-inference-and-adaptive-optimization) - Deep-dive into model execution and runtime AST clause reordering.
