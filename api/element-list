@@ -6,6 +6,7 @@ com.helix.agent.transformer
 com.helix.api
 com.helix.api.agent
 com.helix.api.cache
+com.helix.api.ml
 com.helix.api.profiler
 com.helix.api.stream
 com.helix.cli
@@ -20,8 +21,10 @@ com.helix.core.classloader
 com.helix.core.debug
 com.helix.core.events
 com.helix.core.executor
+com.helix.core.ml
 com.helix.core.parser
 com.helix.core.parser.ast
+com.helix.core.reorder
 com.helix.core.stream.disruptor
 com.helix.core.stream.kafka
 com.helix.experiments
@@ -41,3 +44,4 @@ com.helix.profiler.interactive
 com.helix.profiler.jfr
 com.helix.profiler.jit
 com.helix.profiler.metrics
+com.helix.profiler.node

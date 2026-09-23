@@ -1,1 +1,1 @@
-tagSearchIndex = [{"l":"ASM vs ByteBuddy Comparison Documentation","h":"class com.helix.core.bytecode.AsmGenerator","d":"Section","u":"com/helix/core/bytecode/AsmGenerator.html#asm-vs-bytebuddy-comparison-documentation-heading"},{"l":"Constant Field Values","h":"","u":"constant-values.html"},{"l":"Serialized Form","h":"","u":"serialized-form.html"}];updateSearchResults();
+tagSearchIndex = [{"l":"Constant Field Values","h":"","u":"constant-values.html"},{"l":"Serialized Form","h":"","u":"serialized-form.html"}];updateSearchResults();
