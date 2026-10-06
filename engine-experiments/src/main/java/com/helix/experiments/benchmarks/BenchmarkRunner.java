@@ -16,7 +16,7 @@ public class BenchmarkRunner {
             if (args != null && args.length > 0 && !args[0].isBlank()) {
                 includePattern = args[0];
             } else {
-                includePattern = "CompilationBenchmark|L4CacheBenchmark|DisruptorStreamingBenchmark|OnnxInferenceBenchmark|AdaptiveOptimizerBenchmark";
+                includePattern = "CompilationBenchmark|L4CacheBenchmark|DisruptorStreamingBenchmark|OnnxInferenceBenchmark|AdaptiveOptimizerBenchmark|SandboxOverheadBenchmark|AuditHashingBenchmark";
             }
         }
 
