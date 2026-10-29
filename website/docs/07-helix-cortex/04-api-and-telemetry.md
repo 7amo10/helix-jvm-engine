@@ -30,12 +30,16 @@ Authorization: Bearer <jwt-token>
 | **Auth** | `POST` | `/api/v1/auth/login` | Public | Authenticates credentials and returns a signed MicroProfile JWT token. |
 | **Auth** | `POST` | `/api/v1/auth/register` | Public | Registers a new user with BCrypt password hashing. |
 | **Auth** | `POST` | `/api/v1/auth/refresh` | Authenticated | Exchanges a valid token for a refreshed token. |
-| **Rules** | `POST` | `/api/v1/rules/compile` | `ADMIN`, `OPERATOR` | Compiles raw JSON rule syntax into Helix AST and executable bytecode. |
-| **Rules** | `POST` | `/api/v1/rules/execute` | `ADMIN`, `OPERATOR` | Evaluates a compiled rule against input context with sub-ms execution. |
+| **Rules** | `POST` | `/api/v1/rules/compile` | `ADMIN`, `OPERATOR` | Compiles raw JSON rule syntax into JVM bytecode. Supports optional `?sandboxed=true` to enforce AST capability whitelist for untrusted tenants (HTTP 422 on violation). |
+| **Rules** | `POST` | `/api/v1/rules/execute` | `ADMIN`, `OPERATOR` | Evaluates a compiled rule against input context with sub-ms execution and asynchronous virtual-thread audit logging. |
 | **Rules** | `POST` | `/api/v1/rules/execute/batch` | `ADMIN`, `OPERATOR` | Evaluates a rule against an array of contexts concurrently (Virtual Threads / Pool). |
 | **Rules** | `GET` | `/api/v1/rules/sessions` | `ADMIN`, `OPERATOR`, `ANALYST` | Lists all execution sessions (optimized query, single SQL statement). |
 | **Rules** | `GET` | `/api/v1/rules/sessions/{id}` | `ADMIN`, `OPERATOR`, `ANALYST` | Retrieves full execution details and metrics for a single session. |
 | **Rules** | `DELETE` | `/api/v1/rules/sessions/{id}` | `ADMIN` | Deletes a recorded execution session. |
+| **Audit** | `GET` | `/api/v1/audit/records` | `ADMIN`, `AUDITOR`, `OPERATOR` | Paginated retrieval of immutable audit execution records with SHA-256 rolling hash chains. |
+| **Audit** | `GET` | `/api/v1/audit/records/{seq}` | `ADMIN`, `AUDITOR`, `OPERATOR` | Retrieves full execution details, input payload hash, and cryptographic link for a single sequence. |
+| **Audit** | `POST` | `/api/v1/audit/sign` | `ADMIN`, `AUDITOR` | Computes binary Merkle tree root over uncommitted records and generates an Ed25519 digital signature. |
+| **Audit** | `GET` | `/api/v1/audit/verify` | `ADMIN`, `AUDITOR`, `OPERATOR` | Verifies cryptographic chain continuity and Ed25519 signature authenticity for a sequence range. |
 | **Analysis** | `POST` | `/api/v1/analysis/jar` | `ADMIN`, `OPERATOR` | Uploads a `.jar` archive and inspects bytecode using ASM ClassReader. |
 | **Analysis** | `GET` | `/api/v1/analysis/reports` | `ADMIN`, `OPERATOR`, `ANALYST` | Lists summary reports of all historical JAR bytecode inspections. |
 | **Analysis** | `GET` | `/api/v1/analysis/reports/{id}` | `ADMIN`, `OPERATOR`, `ANALYST` | Retrieves detailed class and method inspection breakdown for a report. |
@@ -72,27 +76,53 @@ curl -s -X POST http://localhost:8080/helix-cortex/api/v1/auth/login \
 }
 ```
 
-### 2. Compile a Business Rule
+### 2. Compile a Business Rule (Trusted & Sandboxed Modes)
+
+Compile rule logic into JVM bytecode. Helix Cortex supports two isolation profiles via the optional `sandboxed` boolean query parameter:
+
+- **Trusted Mode (default, `sandboxed=false`)**: Compiles internal system rules directly to JVM bytecode, bypassing capability policy validation.
+- **Sandboxed Mode (`sandboxed=true`)**: Enforces static AST-level whitelist validation via `CapabilityPolicyEnforcer`, blocking any dangerous system calls, file I/O, networking, reflection, or threading operations.
 
 ```bash
-curl -s -X POST http://localhost:8080/helix-cortex/api/v1/rules/compile \
+# Sandboxed compilation for untrusted tenant submissions
+curl -s -X POST "http://localhost:8080/helix-cortex/api/v1/rules/compile?sandboxed=true" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "ruleName": "fraud-velocity-check",
-    "description": "Flags transactions with excessive velocity",
-    "expression": "context.transactionCount > 10 && context.amount > 5000"
+    "ruleVersion": "1.0.0",
+    "expression": "transactionCount > 10 && amount > 5000",
+    "inputSchema": {"transactionCount": "int", "amount": "double"}
   }'
 ```
 
-**Response (`200 OK`):**
+**Response (`201 Created`):**
 ```json
 {
-  "ruleId": "fraud-velocity-check",
+  "id": 101,
+  "ruleName": "fraud-velocity-check",
+  "ruleVersion": "1.0.0",
+  "compiledRuleId": "fraud-velocity-check:1.0.0:sandboxed",
   "status": "COMPILED",
-  "compilationTimeNs": 124500,
-  "cacheTier": "L1",
-  "message": "Bytecode successfully compiled and linked"
+  "engineerId": "lead_engineer"
+}
+```
+
+**Capability Violation Rejection (`422 Unprocessable Entity`):**
+When an untrusted submission references a forbidden class or method (such as `System.exit` or `Runtime.getRuntime().exec`), the compiler rejects the payload prior to bytecode emission:
+
+```http
+HTTP/1.1 422 Unprocessable Entity
+Content-Type: application/problem+json
+```
+```json
+{
+  "status": 422,
+  "title": "Unprocessable Entity",
+  "violatingClass": "java.lang.System",
+  "violatingMethod": "exit",
+  "errorMessage": "Capability violation: Operation 'java.lang.System.exit' is restricted in sandboxed rule execution mode.",
+  "detail": "Capability violation: Operation 'java.lang.System.exit' is restricted in sandboxed rule execution mode."
 }
 ```
 
@@ -471,6 +501,91 @@ Content-Type: application/problem+json
 
 ---
 
+### 8. Cryptographic Audit Trail & Verification API
+
+The audit API exposes endpoints for retrieving immutable execution records, issuing Ed25519-signed Merkle checkpoints, and cryptographically validating chain integrity.
+
+#### 8.1 Retrieve Paginated Audit Records
+
+```bash
+curl -s -X GET "http://localhost:8080/helix-cortex/api/v1/audit/records?page=0&size=20" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**Response (`200 OK`):**
+```json
+{
+  "content": [
+    {
+      "sequenceNumber": 501,
+      "timestamp": "2026-10-29T10:15:30.125Z",
+      "eventType": "RULE_EVALUATION",
+      "ruleName": "fraud-velocity-check",
+      "ruleVersion": "1.0.0",
+      "engineerId": "lead_engineer",
+      "inputPayloadHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "executionResult": "{\"matched\": true}",
+      "executionTimeNanos": 24500,
+      "currentHash": "9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b",
+      "previousHash": "8f7e6d5c4b3a2f1e0d9c8b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e"
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 501,
+  "totalPages": 26
+}
+```
+
+#### 8.2 Generate Signed Merkle Checkpoint
+
+Computes the binary Merkle root hash across uncommitted records and affixes an Ed25519 digital signature:
+
+```bash
+curl -s -X POST http://localhost:8080/helix-cortex/api/v1/audit/sign \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json"
+```
+
+**Response (`201 Created`):**
+```json
+{
+  "id": 12,
+  "rootHash": "1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b",
+  "startSequenceNumber": 1,
+  "endSequenceNumber": 500,
+  "recordCount": 500,
+  "signedAt": "2026-10-29T10:30:00.000Z",
+  "signatureBase64": "v+Wb4O8...[64-byte Ed25519 Signature]...",
+  "publicKeyBase64": "MCowB...[32-byte Ed25519 Public Key]..."
+}
+```
+
+#### 8.3 Verify Cryptographic Audit Integrity
+
+Verifies both the continuous SHA-256 rolling hash chain and the Ed25519 signature of the enclosing Merkle root:
+
+```bash
+curl -s -X GET "http://localhost:8080/helix-cortex/api/v1/audit/verify?startSeq=1&endSeq=500" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**Response (`200 OK` - Valid Chain):**
+```json
+{
+  "valid": true,
+  "recordsVerified": 500,
+  "startSequence": 1,
+  "endSequence": 500,
+  "rootHash": "1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b",
+  "signatureValid": true,
+  "chainIntegrityValid": true,
+  "message": "Cryptographic audit trail verified successfully: hash chain is continuous and Ed25519 signature is authentic."
+}
+```
+
+---
+
 ## Configuration Reference
 
 Configure these properties in `microprofile-config.properties`, container environment variables, or Helm values:
@@ -497,6 +612,8 @@ Configure these properties in `microprofile-config.properties`, container enviro
 - [System Architecture & Integration Flow](architecture-integration) - Architectural overview of Helix Cortex BCE layers and rule compilation pipeline.
 - [Deployment, Docker Stack & WildFly Setup](deployment-and-setup) - Containerized multi-node cluster setup with persistent `cortex_models` volume and Redis.
 - [Enterprise Use-Cases & Integration Patterns](enterprise-use-cases) - High-throughput fraud prevention and automated rule compilation patterns.
+- [AST Capability Sandbox](../core-guides/capability-sandbox) - Multi-tenant security architecture, capability whitelists, and forbidden operation taxonomy.
+- [Cryptographic Audit Trail & Merkle Verification](../core-guides/cryptographic-audit-trail) - SHA-256 hash chaining, binary Merkle trees, Ed25519 digital signatures, and virtual-thread auditing.
 - [ONNX Model Inference Guide](../core-guides/onnx-model-inference) - In-process ONNX Runtime evaluation, `ML()` rule grammar, and session pooling.
 - [Adaptive AST Optimizer](../core-guides/adaptive-ast-optimizer) - Cost-to-failure branch reordering and reinforcement learning policy guidance.
 - [ML Inference & Adaptive Optimization Architecture](../architecture-and-internals/ml-inference-and-adaptive-optimization) - Deep-dive into model execution, tensor layouts, and RL-guided AST clause reordering.
