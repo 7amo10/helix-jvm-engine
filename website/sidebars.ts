@@ -44,6 +44,8 @@ const sidebars: SidebarsConfig = {
         'core-guides/distributed-streaming',
         'core-guides/onnx-model-inference',
         'core-guides/adaptive-ast-optimizer',
+        'core-guides/capability-sandbox',
+        'core-guides/cryptographic-audit-trail',
       ],
     },
     {
