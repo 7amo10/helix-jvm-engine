@@ -8,6 +8,7 @@ com.helix.api.agent
 com.helix.api.cache
 com.helix.api.ml
 com.helix.api.profiler
+com.helix.api.sandbox
 com.helix.api.stream
 com.helix.cli
 com.helix.cli.output
@@ -25,6 +26,7 @@ com.helix.core.ml
 com.helix.core.parser
 com.helix.core.parser.ast
 com.helix.core.reorder
+com.helix.core.sandbox
 com.helix.core.stream.disruptor
 com.helix.core.stream.kafka
 com.helix.experiments
