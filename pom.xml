@@ -312,7 +312,12 @@
                         <quiet>true</quiet>
                         <additionalOptions>
                             <additionalOption>--enable-preview</additionalOption>
+                            <additionalOption>--add-modules</additionalOption>
+                            <additionalOption>jdk.incubator.vector</additionalOption>
                         </additionalOptions>
+                        <additionalJOptions>
+                            <additionalJOption>--add-modules=jdk.incubator.vector</additionalJOption>
+                        </additionalJOptions>
                     </configuration>
                 </plugin>
                 <!-- Source Plugin for Attaching Sources -->

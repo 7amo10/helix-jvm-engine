@@ -151,6 +151,13 @@ class AdaptiveAstOptimizerRealScenarioIntegrationTest {
             workload.add(createTransactionContext(1850.0, true));
         }
 
+        // Warmup unoptimized rule bytecode across both branches before baseline telemetry collection
+        for (int i = 0; i < 50; i++) {
+            unoptimizedRule.execute(workload.get(0));
+            unoptimizedRule.execute(workload.get(totalTransactions - 1));
+        }
+        AstNodeProfiler.reset();
+
         // --- PHASE 1: Baseline Execution (Unoptimized) ---
         List<Long> baselineLatenciesNanos = new ArrayList<>(totalTransactions);
         List<Boolean> baselineResults = new ArrayList<>(totalTransactions);

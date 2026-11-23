@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * High-performance off-heap columnar data extractor utilizing Panama Foreign Function & Memory (FFM) API.
+ * High-performance off-heap columnar data extractor utilizing Panama Foreign Function and Memory (FFM) API.
  * Transposes row-major {@link ExecutionContext}[] batches into contiguous off-heap {@link MemorySegment}
  * double-precision vectors for hardware SIMD vectorization.
  */

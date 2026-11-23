@@ -234,7 +234,13 @@ public class AdaptiveAstOptimizer {
             // If empirical failure rate is 0 because the node was only evaluated on passing subsets
             // downstream of earlier short-circuiting clauses, apply an optimistic prior (0.50)
             // to avoid short-circuit blindness and allow cheap checks to be evaluated first.
-            return stats.getAverageCostNanos() / 0.50;
+            double cost = stats.getAverageCostNanos();
+            if (!containsMlInference(node) && cost > DEFAULT_ML_RATIO * 0.50) {
+                // A scalar non-ML clause should never be considered more expensive than an ML model
+                // due to cold-start / classloading spikes.
+                cost = DEFAULT_CHEAP_RATIO;
+            }
+            return cost / 0.50;
         }
 
         // Heuristic fallback when empirical telemetry is not yet recorded
