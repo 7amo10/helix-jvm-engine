@@ -38,4 +38,19 @@ class ExecutionContextTest {
 
         assertThrows(ClassCastException.class, () -> context.getVariable("num", String.class));
     }
+
+    @Test
+    @DisplayName("Should retrieve numeric variables as double and return NaN for missing or non-numeric")
+    void testGetDouble() {
+        ExecutionContext context = new ExecutionContext();
+        context.setVariable("intVal", 42);
+        context.setVariable("doubleVal", 3.14159);
+        context.setVariable("strVal", "not_a_number");
+
+        assertEquals(42.0, context.getDouble("intVal"), 0.0001);
+        assertEquals(3.14159, context.getDouble("doubleVal"), 0.0001);
+        assertTrue(Double.isNaN(context.getDouble("strVal")));
+        assertTrue(Double.isNaN(context.getDouble("missingVal")));
+        assertTrue(Double.isNaN(context.getDouble(null)));
+    }
 }

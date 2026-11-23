@@ -43,6 +43,24 @@ public class ExecutionContext {
     }
 
     /**
+     * Retrieves a double value from the execution context in a single pass without boxing.
+     * If the variable is absent, null, or not a Number, returns Double.NaN.
+     *
+     * @param name the variable name
+     * @return double value, or Double.NaN if absent or non-numeric
+     */
+    public double getDouble(String name) {
+        if (name == null) {
+            return Double.NaN;
+        }
+        Object val = this.variables.get(name);
+        if (val instanceof Number n) {
+            return n.doubleValue();
+        }
+        return Double.NaN;
+    }
+
+    /**
      * Retrieves a typed variable from the execution context.
      *
      * @param name the variable name
