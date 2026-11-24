@@ -88,12 +88,54 @@ public class AstEvaluator implements AstVisitor<Object> {
             case MULTIPLY -> evaluateArithmetic(left, right, "*");
             case DIVIDE -> evaluateArithmetic(left, right, "/");
             case MODULO -> evaluateArithmetic(left, right, "%");
-            case GREATER_THAN -> compare(left, right) > 0;
-            case GREATER_EQUAL -> compare(left, right) >= 0;
-            case LESS_THAN -> compare(left, right) < 0;
-            case LESS_EQUAL -> compare(left, right) <= 0;
-            case EQUAL -> Objects.equals(left, right);
-            case NOT_EQUAL -> !Objects.equals(left, right);
+            case GREATER_THAN -> {
+                if (left instanceof Number n1 && right instanceof Number n2) {
+                    double d1 = n1.doubleValue();
+                    double d2 = n2.doubleValue();
+                    yield !Double.isNaN(d1) && !Double.isNaN(d2) && d1 > d2;
+                }
+                yield compare(left, right) > 0;
+            }
+            case GREATER_EQUAL -> {
+                if (left instanceof Number n1 && right instanceof Number n2) {
+                    double d1 = n1.doubleValue();
+                    double d2 = n2.doubleValue();
+                    yield !Double.isNaN(d1) && !Double.isNaN(d2) && d1 >= d2;
+                }
+                yield compare(left, right) >= 0;
+            }
+            case LESS_THAN -> {
+                if (left instanceof Number n1 && right instanceof Number n2) {
+                    double d1 = n1.doubleValue();
+                    double d2 = n2.doubleValue();
+                    yield !Double.isNaN(d1) && !Double.isNaN(d2) && d1 < d2;
+                }
+                yield compare(left, right) < 0;
+            }
+            case LESS_EQUAL -> {
+                if (left instanceof Number n1 && right instanceof Number n2) {
+                    double d1 = n1.doubleValue();
+                    double d2 = n2.doubleValue();
+                    yield !Double.isNaN(d1) && !Double.isNaN(d2) && d1 <= d2;
+                }
+                yield compare(left, right) <= 0;
+            }
+            case EQUAL -> {
+                if (left instanceof Number n1 && right instanceof Number n2) {
+                    double d1 = n1.doubleValue();
+                    double d2 = n2.doubleValue();
+                    yield !Double.isNaN(d1) && !Double.isNaN(d2) && d1 == d2;
+                }
+                yield Objects.equals(left, right);
+            }
+            case NOT_EQUAL -> {
+                if (left instanceof Number n1 && right instanceof Number n2) {
+                    double d1 = n1.doubleValue();
+                    double d2 = n2.doubleValue();
+                    yield Double.isNaN(d1) || Double.isNaN(d2) || d1 != d2;
+                }
+                yield !Objects.equals(left, right);
+            }
             case AND, OR -> throw new IllegalStateException("Handled above");
         };
     }
