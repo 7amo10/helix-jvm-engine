@@ -16,7 +16,7 @@ public class BenchmarkRunner {
             if (args != null && args.length > 0 && !args[0].isBlank()) {
                 includePattern = args[0];
             } else {
-                includePattern = "CompilationBenchmark|L4CacheBenchmark|DisruptorStreamingBenchmark|OnnxInferenceBenchmark|AdaptiveOptimizerBenchmark|SandboxOverheadBenchmark|AuditHashingBenchmark";
+                includePattern = "CompilationBenchmark|L4CacheBenchmark|DisruptorStreamingBenchmark|OnnxInferenceBenchmark|AdaptiveOptimizerBenchmark|SandboxOverheadBenchmark|AuditHashingBenchmark|SIMDBatchBenchmark|VectorizabilityClassifierBenchmark|ColumnExtractorBenchmark";
             }
         }
 
@@ -27,6 +27,7 @@ public class BenchmarkRunner {
         Options opt = new OptionsBuilder()
                 .include(includePattern)
                 .forks(forks)
+                .jvmArgsAppend("--enable-preview", "--add-modules=jdk.incubator.vector")
                 .warmupIterations(warmup)
                 .measurementIterations(measurement)
                 .build();
